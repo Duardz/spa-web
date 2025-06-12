@@ -1,9 +1,15 @@
-import { writable, derived } from 'svelte/store';
+import { writable, derived, type Readable, type Writable } from 'svelte/store';
 import type { User } from '$lib/types';
 import { onAuthChange, signInWithGoogle, signOut } from '$lib/firebase/auth';
 
 // User store
-function createUserStore() {
+interface UserStore extends Readable<User | null> {
+  loading: Writable<boolean>;
+  signIn: typeof signInWithGoogle;
+  signOut: () => Promise<void>;
+}
+
+function createUserStore(): UserStore {
   const { subscribe, set } = writable<User | null>(null);
   
   // Loading state
@@ -19,7 +25,7 @@ function createUserStore() {
   
   return {
     subscribe,
-    loading: { subscribe: loading.subscribe },
+    loading,
     signIn: signInWithGoogle,
     signOut: async () => {
       await signOut();

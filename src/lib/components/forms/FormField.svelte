@@ -26,7 +26,7 @@
     id,
     name,
     type = 'text',
-    value = '',
+    value = $bindable(''),
     placeholder = '',
     disabled = false,
     readonly = false,
@@ -63,7 +63,7 @@
     <select
       {id}
       {name}
-      {value}
+      bind:value
       {disabled}
       class={inputClasses}
       aria-invalid={!!error}
@@ -79,7 +79,7 @@
     <textarea
       {id}
       {name}
-      {value}
+      bind:value
       {placeholder}
       {disabled}
       {readonly}
@@ -96,7 +96,7 @@
       {id}
       {name}
       {type}
-      {value}
+      bind:value
       {placeholder}
       {disabled}
       {readonly}

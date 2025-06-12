@@ -1,3 +1,69 @@
 @import 'tailwindcss';
-@plugin '@tailwindcss/forms';
-@plugin '@tailwindcss/typography';
+
+/* Custom color palette */
+:root {
+  --color-green-primary: #006400;
+  --color-gold-accent: #FFD700;
+  --color-cream-bg: #F9F6F0;
+}
+
+/* Custom utility classes */
+.text-green-primary {
+  color: var(--color-green-primary);
+}
+
+.bg-green-primary {
+  background-color: var(--color-green-primary);
+}
+
+.text-gold-accent {
+  color: var(--color-gold-accent);
+}
+
+.bg-gold-accent {
+  background-color: var(--color-gold-accent);
+}
+
+.bg-cream {
+  background-color: var(--color-cream-bg);
+}
+
+/* Custom font imports (if using Google Fonts) */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+.font-serif {
+  font-family: 'Playfair Display', serif;
+}
+
+.font-sans {
+  font-family: 'Inter', sans-serif;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Form focus states */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(0, 100, 0, 0.2), 0 0 0 4px rgba(0, 100, 0, 0.1);
+}
+
+/* Print styles for enrollment forms */
+@media print {
+  body {
+    background: white;
+  }
+  
+  .no-print {
+    display: none !important;
+  }
+  
+  @page {
+    margin: 0.5in;
+    size: letter;
+  }
+}
