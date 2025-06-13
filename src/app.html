@@ -1,12 +1,55 @@
-<!doctype html>
-<html lang="en">
+<!DOCTYPE html>
+<html lang="en" class="%sveltekit.theme%">
 	<head>
 		<meta charset="utf-8" />
 		<link rel="icon" href="%sveltekit.assets%/favicon.png" />
 		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		
+		<!-- Primary Meta Tags -->
+		<meta name="title" content="Saint Patrick's Academy - Quality Catholic Education">
+		<meta name="description" content="Saint Patrick's Academy provides quality Catholic education for Junior and Senior High School students in San Francisco, Agusan del Sur.">
+		
+		<!-- Open Graph / Facebook -->
+		<meta property="og:type" content="website">
+		<meta property="og:url" content="https://stpatrickacademy.edu.ph/">
+		<meta property="og:title" content="Saint Patrick's Academy - Quality Catholic Education">
+		<meta property="og:description" content="Enroll now at Saint Patrick's Academy. We offer Junior and Senior High School programs with a strong foundation in Catholic values.">
+		<meta property="og:image" content="%sveltekit.assets%/og-image.png">
+		
+		<!-- Twitter -->
+		<meta property="twitter:card" content="summary_large_image">
+		<meta property="twitter:url" content="https://stpatrickacademy.edu.ph/">
+		<meta property="twitter:title" content="Saint Patrick's Academy">
+		<meta property="twitter:description" content="Quality Catholic education in San Francisco, Agusan del Sur">
+		<meta property="twitter:image" content="%sveltekit.assets%/og-image.png">
+		
+		<!-- Fonts -->
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
+		
+		<!-- Theme Color -->
+		<meta name="theme-color" content="#006400">
+		
+		<!-- PWA -->
+		<link rel="manifest" href="%sveltekit.assets%/manifest.json">
+		<meta name="mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="apple-mobile-web-app-status-bar-style" content="default">
+		<meta name="apple-mobile-web-app-title" content="SPA">
+		<link rel="apple-touch-icon" href="%sveltekit.assets%/icon-192x192.png">
+		
 		%sveltekit.head%
 	</head>
-	<body data-sveltekit-preload-data="hover">
+	<body data-sveltekit-preload-data="hover" class="font-sans">
 		<div style="display: contents">%sveltekit.body%</div>
+		
+		<!-- Noscript fallback -->
+		<noscript>
+			<div style="padding: 2rem; text-align: center; background: #fef3c7; color: #92400e;">
+				<h1 style="font-size: 1.5rem; margin-bottom: 1rem;">JavaScript Required</h1>
+				<p>Please enable JavaScript in your browser to use the Saint Patrick's Academy enrollment system.</p>
+			</div>
+		</noscript>
 	</body>
 </html>
