@@ -1,4 +1,6 @@
+// src/lib/utils/validators.ts
 import type { ValidationError, JuniorHighEnrollment, SeniorHighEnrollment } from '$lib/types';
+import { sanitizeInput } from './security';
 
 // LRN validation (12 digits)
 export function validateLRN(lrn: string): boolean {
@@ -29,7 +31,7 @@ export function validateGeneralAverage(average: number): boolean {
 
 // Name validation (letters, spaces, hyphens, apostrophes)
 export function validateName(name: string): boolean {
-  return /^[a-zA-Z\s'-]+$/.test(name) && name.trim().length >= 2;
+  return /^[a-zA-Z\s\-'ñÑ]+$/.test(name) && name.trim().length >= 2;
 }
 
 // Date validation
@@ -38,53 +40,89 @@ export function validateDate(date: string): boolean {
   return !isNaN(parsed.getTime()) && parsed <= new Date();
 }
 
+// Calculate age from birthdate
+export function calculateAge(birthDate: string): number {
+  const birth = new Date(birthDate);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const monthDiff = today.getMonth() - birth.getMonth();
+  
+  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+    age--;
+  }
+  
+  return age;
+}
+
 // Validate Junior High Form
 export function validateJuniorHighForm(data: Partial<JuniorHighEnrollment>): ValidationError[] {
   const errors: ValidationError[] = [];
   
-  // Required fields
+  // XSS Prevention - Sanitize all string inputs
+  Object.keys(data).forEach(key => {
+    if (typeof (data as any)[key] === 'string') {
+      (data as any)[key] = sanitizeInput((data as any)[key]);
+    }
+  });
+  
+  // LRN Validation (exactly 12 digits)
   if (!data.lrn || !validateLRN(data.lrn)) {
-    errors.push({ field: 'lrn', message: 'LRN must be 12 digits' });
+    errors.push({ field: 'lrn', message: 'LRN must be exactly 12 digits' });
   }
   
+  // Name Validation (letters, spaces, hyphens, apostrophes only)
   if (!data.fullName || !validateName(data.fullName)) {
     errors.push({ field: 'fullName', message: 'Please enter a valid name' });
   }
   
+  // Email Validation (if provided)
+  if (data.userEmail && !validateEmail(data.userEmail)) {
+    errors.push({ field: 'email', message: 'Please enter a valid email address' });
+  }
+  
+  // Phone Validation (Philippine format)
+  if (!data.contactNumber || !validatePhoneNumber(data.contactNumber)) {
+    errors.push({ field: 'contactNumber', message: 'Please enter a valid Philippine mobile number' });
+  }
+  
+  // Age Validation
+  if (data.age !== undefined) {
+    const age = typeof data.age === 'string' ? parseInt(data.age) : data.age;
+    if (isNaN(age) || !validateAge(age)) {
+      errors.push({ field: 'age', message: 'Age must be between 5 and 25' });
+    }
+  }
+  
+  // Birth Date Validation
   if (!data.birthDate || !validateDate(data.birthDate)) {
     errors.push({ field: 'birthDate', message: 'Please enter a valid birth date' });
   }
   
-  if (!data.age || !validateAge(data.age)) {
-    errors.push({ field: 'age', message: 'Age must be between 5 and 25' });
+  // General Average Validation
+  if (data.generalAverage !== undefined) {
+    const average = typeof data.generalAverage === 'string' ? parseFloat(data.generalAverage) : data.generalAverage;
+    if (isNaN(average) || !validateGeneralAverage(average)) {
+      errors.push({ field: 'generalAverage', message: 'General average must be between 60 and 100' });
+    }
   }
   
-  if (!data.gender) {
-    errors.push({ field: 'gender', message: 'Please select gender' });
+  // Address Length Check
+  if (!data.address || data.address.length < 10 || data.address.length > 200) {
+    errors.push({ field: 'address', message: 'Address must be between 10 and 200 characters' });
   }
   
-  if (!data.religion || data.religion.trim().length < 2) {
-    errors.push({ field: 'religion', message: 'Please enter religion' });
+  // Religion Field
+  if (!data.religion || data.religion.length < 3 || data.religion.length > 50) {
+    errors.push({ field: 'religion', message: 'Religion must be between 3 and 50 characters' });
   }
   
-  if (!data.address || data.address.trim().length < 10) {
-    errors.push({ field: 'address', message: 'Please enter complete address' });
+  // Guardian validation
+  if (!data.guardianName || data.guardianName.length < 3) {
+    errors.push({ field: 'guardianName', message: 'Guardian name is required' });
   }
   
-  if (!data.guardianName || !validateName(data.guardianName)) {
-    errors.push({ field: 'guardianName', message: 'Please enter guardian name' });
-  }
-  
-  if (!data.contactNumber || !validatePhoneNumber(data.contactNumber)) {
-    errors.push({ field: 'contactNumber', message: 'Please enter valid contact number' });
-  }
-  
-  if (!data.lastSchool || data.lastSchool.trim().length < 5) {
-    errors.push({ field: 'lastSchool', message: 'Please enter last school attended' });
-  }
-  
-  if (!data.generalAverage || !validateGeneralAverage(data.generalAverage)) {
-    errors.push({ field: 'generalAverage', message: 'General average must be between 60 and 100' });
+  if (!data.guardianRelation || data.guardianRelation.length < 2) {
+    errors.push({ field: 'guardianRelation', message: 'Guardian relationship is required' });
   }
   
   // At least one document required
@@ -99,9 +137,9 @@ export function validateJuniorHighForm(data: Partial<JuniorHighEnrollment>): Val
 export function validateSeniorHighForm(data: Partial<SeniorHighEnrollment>): ValidationError[] {
   const errors: ValidationError[] = [];
   
-  // All junior high validations apply
+  // All junior high validations apply (except documents)
   const baseErrors = validateJuniorHighForm(data as Partial<JuniorHighEnrollment>);
-  errors.push(...baseErrors.filter(e => e.field !== 'documents')); // Remove document check
+  errors.push(...baseErrors.filter(e => e.field !== 'documents'));
   
   // Additional senior high fields
   if (!data.strand) {
@@ -145,16 +183,33 @@ export function formatPhoneNumber(phone: string): string {
   return phone;
 }
 
-// Calculate age from birthdate
-export function calculateAge(birthDate: string): number {
-  const birth = new Date(birthDate);
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const monthDiff = today.getMonth() - birth.getMonth();
+// Validate enrollment form (generic)
+export interface ValidationResult {
+  isValid: boolean;
+  errors: Record<string, string>;
+}
+
+export function validateEnrollmentForm(data: any): ValidationResult {
+  const errors: Record<string, string> = {};
+  let validationErrors: ValidationError[] = [];
   
-  if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
-    age--;
+  // Determine form type and validate accordingly
+  if (data.type === 'junior') {
+    validationErrors = validateJuniorHighForm(data);
+  } else if (data.type === 'senior') {
+    validationErrors = validateSeniorHighForm(data);
+  } else {
+    // For generic validation when type is not set
+    validationErrors = validateJuniorHighForm(data);
   }
   
-  return age;
+  // Convert array errors to object
+  validationErrors.forEach(error => {
+    errors[error.field] = error.message;
+  });
+  
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors
+  };
 }

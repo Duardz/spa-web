@@ -1,12 +1,14 @@
+// src/hooks.server.ts
 import type { Handle } from '@sveltejs/kit';
+import { CSP_HEADERS } from '$lib/utils/security';
 
 export const handle: Handle = async ({ event, resolve }) => {
   const host = event.request.headers.get('host') || '';
   const isAdminSubdomain = host.startsWith('admin.') || host.startsWith('secure.');
   const isAdminRoute = event.url.pathname.startsWith('/admin');
   
-  // Security headers for all requests
-  const securityHeaders = {
+  // Base security headers for all requests
+  const baseSecurityHeaders = {
     'X-Frame-Options': 'DENY',
     'X-Content-Type-Options': 'nosniff',
     'Referrer-Policy': 'strict-origin-when-cross-origin',
@@ -39,7 +41,13 @@ export const handle: Handle = async ({ event, resolve }) => {
   // Add security headers to response
   const response = await resolve(event);
   
-  Object.entries(securityHeaders).forEach(([key, value]) => {
+  // Add base security headers
+  Object.entries(baseSecurityHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value);
+  });
+  
+  // Add CSP headers from security utils
+  Object.entries(CSP_HEADERS).forEach(([key, value]) => {
     response.headers.set(key, value);
   });
   
