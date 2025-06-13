@@ -1,4 +1,3 @@
-/* src/app.css */
 @import 'tailwindcss';
 
 /* Enhanced Color System */
@@ -27,24 +26,18 @@
   /* Background - Warm Cream */
   --color-cream: #fdfcf8;
   --color-cream-dark: #f9f6f0;
-  
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  --shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 }
 
 /* Custom Font Import */
 @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
 
-/* Typography System */
+/* Typography */
 .font-serif {
   font-family: 'Playfair Display', serif;
 }
 
 .font-sans {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 /* Base Styles */
@@ -55,9 +48,7 @@ html {
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  font-size: 16px;
-  line-height: 1.6;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   color: #1f2937;
   background-color: var(--color-cream);
 }
@@ -66,69 +57,14 @@ body {
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Playfair Display', serif;
   font-weight: 700;
-  line-height: 1.2;
 }
 
-h1 { font-size: 2.5rem; }
-h2 { font-size: 2rem; }
-h3 { font-size: 1.75rem; }
-h4 { font-size: 1.5rem; }
-h5 { font-size: 1.25rem; }
-h6 { font-size: 1.125rem; }
-
-/* Custom Color Utilities */
+/* Custom color utilities */
 .text-green-primary { color: var(--color-green-700); }
 .bg-green-primary { background-color: var(--color-green-700); }
 .text-gold-accent { color: var(--color-gold-500); }
 .bg-gold-accent { background-color: var(--color-gold-500); }
 .bg-cream { background-color: var(--color-cream); }
-.bg-cream-dark { background-color: var(--color-cream-dark); }
-
-/* Additional Tailwind Color Classes for Gold */
-.text-gold-50 { color: var(--color-gold-50); }
-.text-gold-100 { color: var(--color-gold-100); }
-.text-gold-200 { color: var(--color-gold-200); }
-.text-gold-300 { color: var(--color-gold-300); }
-.text-gold-400 { color: var(--color-gold-400); }
-.text-gold-500 { color: var(--color-gold-500); }
-.text-gold-600 { color: var(--color-gold-600); }
-
-.bg-gold-50 { background-color: var(--color-gold-50); }
-.bg-gold-100 { background-color: var(--color-gold-100); }
-.bg-gold-200 { background-color: var(--color-gold-200); }
-.bg-gold-300 { background-color: var(--color-gold-300); }
-.bg-gold-400 { background-color: var(--color-gold-400); }
-.bg-gold-500 { background-color: var(--color-gold-500); }
-.bg-gold-600 { background-color: var(--color-gold-600); }
-
-.border-gold-200 { border-color: var(--color-gold-200); }
-.border-gold-300 { border-color: var(--color-gold-300); }
-.border-gold-400 { border-color: var(--color-gold-400); }
-.border-gold-500 { border-color: var(--color-gold-500); }
-
-.from-gold-500 { --tw-gradient-from: var(--color-gold-500); }
-.from-gold-600 { --tw-gradient-from: var(--color-gold-600); }
-.to-gold-600 { --tw-gradient-to: var(--color-gold-600); }
-.to-gold-700 { --tw-gradient-to: var(--color-gold-600); }
-
-.hover\:from-gold-600:hover { --tw-gradient-from: var(--color-gold-600); }
-.hover\:to-gold-700:hover { --tw-gradient-to: var(--color-gold-600); }
-
-.focus\:ring-gold-400:focus { --tw-ring-color: var(--color-gold-400); }
-.focus\:ring-gold-500:focus { --tw-ring-color: var(--color-gold-500); }
-
-/* Custom Utilities */
-.text-shadow {
-  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.text-shadow-lg {
-  text-shadow: 0 4px 8px rgba(0,0,0,0.15);
-}
-
-.shadow-gold {
-  box-shadow: 0 4px 6px -1px rgba(217, 119, 6, 0.1), 0 2px 4px -1px rgba(217, 119, 6, 0.06);
-}
 
 /* Form Focus States */
 input:focus,
@@ -138,16 +74,11 @@ textarea:focus {
   box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1), 0 0 0 1px rgba(5, 150, 105, 0.4);
 }
 
-/* Custom Checkbox Styling */
-input[type="checkbox"] {
-  @apply rounded border-gray-300 text-green-600 focus:ring-green-500;
-}
-
-input[type="checkbox"]:checked {
-  background-image: url("data:image/svg+xml,%3csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M12.207 4.793a1 1 0 010 1.414l-5 5a1 1 0 01-1.414 0l-2-2a1 1 0 011.414-1.414L6.5 9.086l4.293-4.293a1 1 0 011.414 0z'/%3e%3c/svg%3e");
-  background-size: 100% 100%;
-  background-position: center;
-  background-repeat: no-repeat;
+/* Print Styles */
+@media print {
+  body { background: white; }
+  .no-print { display: none !important; }
+  @page { margin: 0.5in; size: letter; }
 }
 
 /* Animations */
@@ -156,122 +87,10 @@ input[type="checkbox"]:checked {
   100% { background-position: 1000px 0; }
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0px) rotate(0deg); }
-  50% { transform: translateY(-20px) rotate(10deg); }
-}
-
-@keyframes float-slow {
-  0%, 100% { transform: translate(0, 0); }
-  33% { transform: translate(30px, -30px); }
-  66% { transform: translate(-20px, 20px); }
-}
-
-@keyframes fade-in-up {
-  from {
-    opacity: 0;
-    transform: translateY(30px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-@keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
-@keyframes slide-in {
-  from {
-    opacity: 0;
-    transform: translateX(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-/* Animation Classes */
 .animate-shimmer {
   background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
   background-size: 1000px 100%;
   animation: shimmer 2s infinite;
-}
-
-.animate-float {
-  animation: float 3s ease-in-out infinite;
-}
-
-.animate-float-slow {
-  animation: float-slow 20s ease-in-out infinite;
-}
-
-.animate-fade-in-up {
-  animation: fade-in-up 0.8s ease-out forwards;
-}
-
-.animate-fade-in {
-  animation: fade-in 0.5s ease-out;
-}
-
-.animate-slide-in {
-  animation: slide-in 0.5s ease-out;
-}
-
-/* Animation Delays */
-.animation-delay-200 { animation-delay: 200ms; }
-.animation-delay-400 { animation-delay: 400ms; }
-.animation-delay-600 { animation-delay: 600ms; }
-
-/* Loading Skeleton */
-.skeleton {
-  @apply animate-pulse bg-gray-200 rounded;
-}
-
-/* Card Hover Effects */
-.card-hover {
-  @apply transition-all duration-300 ease-in-out;
-}
-
-.card-hover:hover {
-  @apply transform -translate-y-1 shadow-xl;
-}
-
-/* Gradient Text */
-.gradient-text {
-  @apply bg-gradient-to-r from-green-600 to-green-700 bg-clip-text text-transparent;
-}
-
-.gradient-text-gold {
-  @apply bg-gradient-to-r from-gold-500 to-gold-600 bg-clip-text text-transparent;
-}
-
-/* Line Clamp Utilities */
-.line-clamp-1 {
-  display: -webkit-box;
-  -webkit-line-clamp: 1;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  line-clamp: 1;
-}
-
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  line-clamp: 2;
-}
-
-.line-clamp-3 {
-  display: -webkit-box;
-  -webkit-line-clamp: 3;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  line-clamp: 3;
 }
 
 /* Scrollbar Styling */
@@ -281,103 +100,20 @@ input[type="checkbox"]:checked {
 }
 
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100;
+  background: #f3f4f6;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-green-600 rounded-full;
+  background: var(--color-green-600);
+  border-radius: 5px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-green-700;
+  background: var(--color-green-700);
 }
 
 /* Selection */
 ::selection {
-  @apply bg-green-200 text-green-900;
+  background: var(--color-green-200);
+  color: var(--color-green-900);
 }
-
-::-moz-selection {
-  @apply bg-green-200 text-green-900;
-}
-
-/* Print Styles */
-@media print {
-  body {
-    background: white;
-    color: black;
-  }
-  
-  .no-print {
-    display: none !important;
-  }
-  
-  @page {
-    margin: 0.5in;
-    size: letter;
-  }
-  
-  h1, h2, h3, h4, h5, h6 {
-    page-break-after: avoid;
-  }
-  
-  img, figure {
-    page-break-inside: avoid;
-  }
-}
-
-/* Responsive Typography */
-@media (max-width: 768px) {
-  h1 { font-size: 2rem; }
-  h2 { font-size: 1.75rem; }
-  h3 { font-size: 1.5rem; }
-  h4 { font-size: 1.25rem; }
-  h5 { font-size: 1.125rem; }
-  h6 { font-size: 1rem; }
-}
-
-/* Utility Classes */
-.shadow-soft {
-  box-shadow: 0 2px 15px rgba(0, 0, 0, 0.08);
-}
-
-.shadow-hard {
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.15);
-}
-
-/* Backdrop Blur */
-.backdrop-blur-xs {
-  backdrop-filter: blur(2px);
-}
-
-.backdrop-blur-sm {
-  backdrop-filter: blur(4px);
-}
-
-.backdrop-blur-md {
-  backdrop-filter: blur(12px);
-}
-
-.backdrop-blur-lg {
-  backdrop-filter: blur(16px);
-}
-
-/* Custom Focus Ring */
-.focus-ring {
-  @apply focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2;
-}
-
-/* Transition Utilities */
-.transition-smooth {
-  @apply transition-all duration-300 ease-in-out;
-}
-
-.transition-fast {
-  @apply transition-all duration-150 ease-in-out;
-}
-
-/* Z-Index Scale */
-.z-dropdown { z-index: 1000; }
-.z-modal { z-index: 1050; }
-.z-popover { z-index: 1100; }
-.z-tooltip { z-index: 1150; }
