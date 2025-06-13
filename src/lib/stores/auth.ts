@@ -1,3 +1,4 @@
+// stores/auth.ts
 import { writable, derived, type Readable, type Writable } from 'svelte/store';
 import type { User } from '$lib/types';
 import { onAuthChange, signInWithGoogle, signOut } from '$lib/firebase/auth';

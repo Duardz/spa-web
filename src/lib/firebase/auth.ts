@@ -1,3 +1,4 @@
+// firebase/auth.ts
 import {
   GoogleAuthProvider,
   signInWithPopup,

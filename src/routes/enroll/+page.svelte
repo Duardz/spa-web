@@ -82,37 +82,7 @@
 </svelte:head>
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-  {#if !$isAuthenticated}
-    <!-- Not Authenticated -->
-    <Card class="max-w-2xl mx-auto">
-      <div class="text-center py-8">
-        <svg class="w-20 h-20 text-green-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-        </svg>
-        <h2 class="text-2xl font-bold text-gray-900 mb-4">Sign In Required</h2>
-        <p class="text-gray-600 mb-6">
-          Please sign in with your Google account to access the enrollment form.
-        </p>
-        <a href="/signin?redirect=/enroll">
-          <Button variant="primary" size="lg">
-            Sign In with Google
-          </Button>
-        </a>
-        
-        <!-- Add refresh option -->
-        <div class="mt-6">
-          <p class="text-sm text-gray-500 mb-2">Already signed in but not seeing the form?</p>
-          <Button variant="outline" size="sm" onclick={() => window.location.reload()}>
-            Refresh Page
-          </Button>
-        </div>
-      </div>
-    </Card>
-  {:else if loading}
-    <div class="flex justify-center py-12">
-      <LoadingSpinner size="lg" />
-    </div>
-  {:else if !$enrollmentSettings.isOpen}
+  {#if !$enrollmentSettings.isOpen}
     <!-- Enrollment Closed -->
     <Card class="max-w-2xl mx-auto">
       <div class="text-center py-8">
@@ -128,6 +98,78 @@
         {/if}
       </div>
     </Card>
+  {:else if !$isAuthenticated}
+    <!-- Not Authenticated but Enrollment is Open -->
+    <div class="space-y-8">
+      <!-- Enrollment Info -->
+      <div class="text-center">
+        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
+          Online Enrollment
+        </h1>
+        <p class="text-xl text-gray-600">
+          School Year {$enrollmentSettings.schoolYear}
+        </p>
+      </div>
+      
+      <!-- Available Programs -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+        {#if $enrollmentSettings.juniorHighOpen}
+          <Card>
+            <div class="text-center py-8">
+              <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="text-2xl font-bold">JHS</span>
+              </div>
+              <h2 class="text-2xl font-bold mb-2">Junior High School</h2>
+              <p class="text-gray-600 mb-4">Grades 7 to 10</p>
+              <div class="text-sm text-gray-500">
+                ✓ K-12 Curriculum<br>
+                ✓ Values Education<br>
+                ✓ Co-curricular Activities
+              </div>
+            </div>
+          </Card>
+        {/if}
+        
+        {#if $enrollmentSettings.seniorHighOpen}
+          <Card>
+            <div class="text-center py-8">
+              <div class="w-20 h-20 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span class="text-2xl font-bold">SHS</span>
+              </div>
+              <h2 class="text-2xl font-bold mb-2">Senior High School</h2>
+              <p class="text-gray-600 mb-4">Grades 11 and 12</p>
+              <div class="text-sm text-gray-500">
+                ✓ STEM, HUMSS, ABM Strands<br>
+                ✓ College Preparation<br>
+                ✓ Work Immersion
+              </div>
+            </div>
+          </Card>
+        {/if}
+      </div>
+      
+      <!-- Sign In Prompt -->
+      <Card class="max-w-2xl mx-auto bg-blue-50 border-blue-200">
+        <div class="text-center py-8">
+          <svg class="w-20 h-20 text-blue-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+          </svg>
+          <h2 class="text-2xl font-bold text-gray-900 mb-4">Ready to Apply?</h2>
+          <p class="text-gray-700 mb-6">
+            Sign in with your Google account to access the enrollment form and submit your application.
+          </p>
+          <a href="/signin?redirect=/enroll">
+            <Button variant="primary" size="lg">
+              Sign In to Start Application
+            </Button>
+          </a>
+        </div>
+      </Card>
+    </div>
+  {:else if loading}
+    <div class="flex justify-center py-12">
+      <LoadingSpinner size="lg" />
+    </div>
   {:else if showSuccess}
     <!-- Success Message -->
     <Card class="max-w-2xl mx-auto bg-green-50 border-green-200">
@@ -145,7 +187,7 @@
       </div>
     </Card>
   {:else if !selectedType}
-    <!-- Enrollment Options -->
+    <!-- Enrollment Options for Authenticated Users -->
     <div class="text-center mb-8">
       <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
         Online Enrollment

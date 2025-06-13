@@ -4,11 +4,15 @@
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import { enrollmentSettings } from '$lib/stores/enrollment';
   import { newsOps } from '$lib/firebase/firestore';
+  import { user } from '$lib/stores/auth';
   import type { NewsPost } from '$lib/types';
   import { onMount } from 'svelte';
   
   let latestNews = $state<NewsPost[]>([]);
   let newsLoading = $state(true);
+  
+  // Derive authentication state from the user store
+  const isAuthenticated = $derived($user !== null);
   
   onMount(async () => {
     try {
@@ -269,11 +273,18 @@
       <p class="text-xl mb-8 text-green-100">
         Join our community for School Year {$enrollmentSettings.schoolYear}
       </p>
-      <a href="/enroll">
-        <Button variant="secondary" size="lg">
-          Start Your Application
-        </Button>
-      </a>
+      <div class="space-y-4">
+        <a href="/enroll">
+          <Button variant="secondary" size="lg">
+            {isAuthenticated ? 'Start Your Application' : 'View Enrollment Details'}
+          </Button>
+        </a>
+        {#if !isAuthenticated}
+          <p class="text-sm text-green-200">
+            Sign in required to submit application
+          </p>
+        {/if}
+      </div>
     </div>
   </section>
 {/if}

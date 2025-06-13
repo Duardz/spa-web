@@ -1,3 +1,4 @@
+// stores/loading.ts
 import { writable } from 'svelte/store';
 
 interface LoadingState {

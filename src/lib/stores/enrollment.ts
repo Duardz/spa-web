@@ -1,3 +1,4 @@
+// stores/enrollment.ts
 import { writable } from 'svelte/store';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '$lib/firebase/config';
