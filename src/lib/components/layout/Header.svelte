@@ -1,7 +1,7 @@
 <script lang="ts">
   import Navigation from './Navigation.svelte';
   import Button from '../ui/Button.svelte';
-  import { user, isAuthenticated } from '$lib/stores/auth';
+  import { user, isAuthenticated, isAdmin } from '$lib/stores/auth';
   import { enrollmentSettings } from '$lib/stores/enrollment';
   
   let mobileMenuOpen = $state(false);
@@ -37,6 +37,11 @@
         
         {#if $isAuthenticated}
           <div class="flex items-center space-x-3">
+            {#if $isAdmin}
+              <a href="/admin" class="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium hover:bg-green-200 transition-colors">
+                Admin Dashboard
+              </a>
+            {/if}
             <img 
               src={$user?.photoURL || '/default-avatar.png'} 
               alt="Profile" 
@@ -48,9 +53,11 @@
             </Button>
           </div>
         {:else}
-          <Button variant="outline" size="sm" onclick={() => user.signIn()}>
-            Sign In
-          </Button>
+          <a href="/signin">
+            <Button variant="outline" size="sm">
+              Sign In
+            </Button>
+          </a>
         {/if}
       </div>
       
@@ -105,9 +112,11 @@
                   </Button>
                 </a>
               {/if}
-              <Button variant="outline" fullWidth={true} onclick={() => user.signIn()}>
-                Sign In
-              </Button>
+              <a href="/signin" class="block">
+                <Button variant="outline" fullWidth={true}>
+                  Sign In
+                </Button>
+              </a>
             </div>
           {/if}
         </div>

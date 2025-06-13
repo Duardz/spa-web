@@ -11,6 +11,11 @@ import type { User } from '$lib/types';
 
 const googleProvider = new GoogleAuthProvider();
 
+// Configure Google provider to always show account picker
+googleProvider.setCustomParameters({
+  prompt: 'select_account'
+});
+
 // Sign in with Google
 export async function signInWithGoogle(): Promise<User | null> {
   try {
@@ -35,7 +40,12 @@ export async function signInWithGoogle(): Promise<User | null> {
     }
     
     return userDoc.data() as User;
-  } catch (error) {
+  } catch (error: any) {
+    // Handle specific auth errors
+    if (error.code === 'auth/popup-closed-by-user') {
+      console.log('Sign-in cancelled by user');
+      return null;
+    }
     console.error('Error signing in with Google:', error);
     throw error;
   }

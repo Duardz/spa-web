@@ -93,9 +93,11 @@
         <p class="text-gray-600 mb-6">
           Please sign in with your Google account to access the enrollment form.
         </p>
-        <Button variant="primary" size="lg" onclick={() => user.signIn()}>
-          Sign In with Google
-        </Button>
+        <a href="/signin?redirect=/enroll">
+          <Button variant="primary" size="lg">
+            Sign In with Google
+          </Button>
+        </a>
       </div>
     </Card>
   {:else if loading}
