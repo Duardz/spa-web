@@ -1,42 +1,50 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { goto } from '$app/navigation';
-  import Card from '$lib/components/ui/Card.svelte';
   import Button from '$lib/components/ui/Button.svelte';
+  import Card from '$lib/components/ui/Card.svelte';
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import JuniorHighForm from '$lib/components/forms/JuniorHighForm.svelte';
   import SeniorHighForm from '$lib/components/forms/SeniorHighForm.svelte';
   import { user, isAuthenticated } from '$lib/stores/auth';
   import { enrollmentSettings, userEnrollments } from '$lib/stores/enrollment';
   import { enrollmentOps } from '$lib/firebase/firestore';
-  import type { Enrollment } from '$lib/types';
-  import { onMount } from 'svelte';
+  import type { Enrollment, JuniorHighEnrollment, SeniorHighEnrollment } from '$lib/types';
   
   let selectedType = $state<'junior' | 'senior' | null>(null);
-  let showSuccess = $state(false);
+  let existingEnrollments = $state<Enrollment[]>([]);
   let loading = $state(true);
-  let myEnrollments = $state<Enrollment[]>([]);
+  let submitting = $state(false);
+  let error = $state('');
+  let success = $state(false);
   
-  onMount(async () => {
-    // Check if user is authenticated
-    if (!$isAuthenticated) {
-      loading = false;
-      return;
-    }
+  // Load user's existing enrollments
+  async function loadEnrollments() {
+    if (!$user) return;
     
-    // Load user's enrollments
     try {
-      const enrollments = await enrollmentOps.getByUser($user!.uid);
-      myEnrollments = enrollments;
+      loading = true;
+      error = '';
+      const enrollments = await enrollmentOps.getByUser($user.uid);
+      existingEnrollments = enrollments;
       userEnrollments.setEnrollments(enrollments);
-    } catch (error) {
-      console.error('Error loading enrollments:', error);
+    } catch (err) {
+      console.error('Error loading enrollments:', err);
+      error = 'Failed to load your enrollments. Please refresh the page.';
     } finally {
       loading = false;
     }
-  });
+  }
   
-  async function handleSubmit(data: Omit<Enrollment, 'id'>) {
-    if (!$user) return;
+  // Handle form submission
+  async function handleSubmit(data: Omit<JuniorHighEnrollment | SeniorHighEnrollment, 'id'>) {
+    if (!$user) {
+      error = 'You must be signed in to submit an enrollment.';
+      return;
+    }
+    
+    submitting = true;
+    error = '';
     
     try {
       // Add user info to enrollment data
@@ -46,244 +54,312 @@
         userEmail: $user.email
       };
       
+      // Submit to Firestore
       const enrollmentId = await enrollmentOps.create(enrollmentData);
       
-      // Show success message
-      showSuccess = true;
+      // Update local state
+      const newEnrollment = { ...enrollmentData, id: enrollmentId } as Enrollment;
+      existingEnrollments = [...existingEnrollments, newEnrollment];
+      userEnrollments.addEnrollment(newEnrollment);
+      
+      // Show success
+      success = true;
       selectedType = null;
       
-      // Reload enrollments
-      const enrollments = await enrollmentOps.getByUser($user.uid);
-      myEnrollments = enrollments;
-      userEnrollments.setEnrollments(enrollments);
-      
       // Scroll to top
-      window.scrollTo(0, 0);
-    } catch (error) {
-      console.error('Error submitting enrollment:', error);
-      throw error;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      
+    } catch (err: any) {
+      console.error('Submission error:', err);
+      
+      // Provide user-friendly error messages
+      if (err.code === 'permission-denied') {
+        error = 'You do not have permission to submit enrollments. Please contact support.';
+      } else if (err.code === 'unavailable') {
+        error = 'Unable to connect to the server. Please check your internet connection.';
+      } else {
+        error = 'Failed to submit enrollment. Please try again or contact support.';
+      }
+      
+      // Scroll to error
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
+      submitting = false;
     }
   }
   
-  function getStatusColor(status: string) {
-    switch (status) {
-      case 'submitted': return 'text-yellow-600 bg-yellow-50';
-      case 'verified': return 'text-green-600 bg-green-50';
-      case 'printed': return 'text-blue-600 bg-blue-50';
-      case 'archived': return 'text-gray-600 bg-gray-50';
-      default: return 'text-gray-600 bg-gray-50';
-    }
+  // Cancel form
+  function handleCancel() {
+    selectedType = null;
+    error = '';
   }
+  
+  // Check if user can enroll for a specific type
+  function canEnroll(type: 'junior' | 'senior'): boolean {
+    // Check if enrollment is open for this type
+    if (!$enrollmentSettings.isOpen) return false;
+    if (type === 'junior' && !$enrollmentSettings.juniorHighOpen) return false;
+    if (type === 'senior' && !$enrollmentSettings.seniorHighOpen) return false;
+    
+    // Check if user already has a submitted enrollment for this school year
+    const hasExisting = existingEnrollments.some(e => 
+      e.type === type && 
+      e.schoolYear === $enrollmentSettings.schoolYear &&
+      e.status !== 'archived'
+    );
+    
+    return !hasExisting;
+  }
+  
+  onMount(() => {
+    if ($isAuthenticated) {
+      loadEnrollments();
+    } else {
+      loading = false;
+    }
+  });
+  
+  // Reactive: Reload when user changes
+  $effect(() => {
+    if ($user) {
+      loadEnrollments();
+    } else {
+      existingEnrollments = [];
+      loading = false;
+    }
+  });
 </script>
 
 <svelte:head>
-  <title>Enrollment - Saint Patrick's Academy</title>
-  <meta name="description" content="Enroll at Saint Patrick's Academy for Junior High School or Senior High School. Start your application online.">
+  <title>Online Enrollment - Saint Patrick's Academy</title>
+  <meta name="description" content="Enroll online for Junior and Senior High School at Saint Patrick's Academy. Quick and easy enrollment process for School Year {$enrollmentSettings.schoolYear}.">
 </svelte:head>
 
-<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-  {#if !$enrollmentSettings.isOpen}
-    <!-- Enrollment Closed -->
-    <Card class="max-w-2xl mx-auto">
-      <div class="text-center py-8">
-        <svg class="w-20 h-20 text-yellow-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+<div class="min-h-screen bg-gray-50 py-8">
+  <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <!-- Header -->
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-bold text-gray-900">Online Enrollment</h1>
+      <p class="mt-2 text-lg text-gray-600">School Year {$enrollmentSettings.schoolYear}</p>
+    </div>
+    
+    <!-- Error Alert -->
+    {#if error}
+      <div class="mb-6 bg-red-50 border-l-4 border-red-500 p-4 rounded">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <p class="text-sm text-red-800">{error}</p>
+          </div>
+        </div>
+      </div>
+    {/if}
+    
+    <!-- Success Alert -->
+    {#if success}
+      <div class="mb-6 bg-green-50 border-l-4 border-green-500 p-4 rounded">
+        <div class="flex">
+          <div class="flex-shrink-0">
+            <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+            </svg>
+          </div>
+          <div class="ml-3">
+            <h3 class="text-sm font-medium text-green-800">Enrollment Submitted Successfully!</h3>
+            <p class="mt-1 text-sm text-green-700">
+              Your enrollment application has been received. We will review it and contact you soon.
+            </p>
+          </div>
+        </div>
+      </div>
+    {/if}
+    
+    {#if loading}
+      <div class="flex justify-center py-12">
+        <LoadingSpinner size="lg" />
+      </div>
+    {:else if !$enrollmentSettings.isOpen}
+      <!-- Enrollment Closed -->
+      <Card class="text-center py-12">
+        <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
         </svg>
-        <h2 class="text-2xl font-bold text-gray-900 mb-4">Enrollment is Currently Closed</h2>
-        <p class="text-gray-600 mb-2">
-          Online enrollment for School Year {$enrollmentSettings.schoolYear} is not yet open.
+        <h2 class="mt-4 text-xl font-semibold text-gray-900">Enrollment is Currently Closed</h2>
+        <p class="mt-2 text-gray-600 max-w-md mx-auto">
+          {$enrollmentSettings.message || 'Online enrollment for School Year ' + $enrollmentSettings.schoolYear + ' is not yet open. Please check back later or contact the school for more information.'}
         </p>
-        {#if $enrollmentSettings.message}
-          <p class="text-gray-700 font-medium mt-4">{$enrollmentSettings.message}</p>
-        {/if}
-      </div>
-    </Card>
-  {:else if !$isAuthenticated}
-    <!-- Not Authenticated but Enrollment is Open -->
-    <div class="space-y-8">
-      <!-- Enrollment Info -->
-      <div class="text-center">
-        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-          Online Enrollment
-        </h1>
-        <p class="text-xl text-gray-600">
-          School Year {$enrollmentSettings.schoolYear}
+        <div class="mt-6">
+          <Button variant="outline" onclick={() => goto('/')}>
+            Back to Home
+          </Button>
+        </div>
+      </Card>
+    {:else if !$isAuthenticated}
+      <!-- Not Signed In -->
+      <Card class="text-center py-12">
+        <svg class="mx-auto h-12 w-12 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <h2 class="mt-4 text-xl font-semibold text-gray-900">Sign In Required</h2>
+        <p class="mt-2 text-gray-600 max-w-md mx-auto">
+          You need to sign in with your Google account to submit an enrollment application.
         </p>
-      </div>
-      
-      <!-- Available Programs -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-        {#if $enrollmentSettings.juniorHighOpen}
+        <div class="mt-6 space-y-3">
+          <Button variant="primary" onclick={() => goto('/signin?redirect=/enroll')}>
+            Sign In to Continue
+          </Button>
+          <p class="text-sm text-gray-500">
+            Don't have an account? Sign in with Google will create one automatically.
+          </p>
+        </div>
+      </Card>
+    {:else if selectedType === null}
+      <!-- Select Enrollment Type -->
+      <div class="space-y-6">
+        <!-- Existing Enrollments -->
+        {#if existingEnrollments.length > 0}
           <Card>
-            <div class="text-center py-8">
-              <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span class="text-2xl font-bold">JHS</span>
-              </div>
-              <h2 class="text-2xl font-bold mb-2">Junior High School</h2>
-              <p class="text-gray-600 mb-4">Grades 7 to 10</p>
-              <div class="text-sm text-gray-500">
-                ✓ K-12 Curriculum<br>
-                ✓ Values Education<br>
-                ✓ Co-curricular Activities
-              </div>
+            <h2 class="text-lg font-semibold mb-4">Your Enrollments</h2>
+            <div class="space-y-3">
+              {#each existingEnrollments as enrollment}
+                <div class="bg-gray-50 p-4 rounded-lg">
+                  <div class="flex justify-between items-start">
+                    <div>
+                      <p class="font-medium text-gray-900">
+                        {enrollment.type === 'junior' ? 'Junior High School' : 'Senior High School'} - Grade {enrollment.gradeLevel}
+                      </p>
+                      <p class="text-sm text-gray-600">
+                        School Year: {enrollment.schoolYear}
+                      </p>
+                      <p class="text-sm text-gray-500">
+                        Submitted: {new Date(enrollment.submittedAt).toLocaleDateString('en-PH')}
+                      </p>
+                    </div>
+                    <span class={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                      enrollment.status === 'submitted' ? 'bg-yellow-100 text-yellow-800' :
+                      enrollment.status === 'verified' ? 'bg-green-100 text-green-800' :
+                      enrollment.status === 'printed' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {enrollment.status.charAt(0).toUpperCase() + enrollment.status.slice(1)}
+                    </span>
+                  </div>
+                </div>
+              {/each}
             </div>
           </Card>
         {/if}
         
-        {#if $enrollmentSettings.seniorHighOpen}
-          <Card>
-            <div class="text-center py-8">
-              <div class="w-20 h-20 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span class="text-2xl font-bold">SHS</span>
-              </div>
-              <h2 class="text-2xl font-bold mb-2">Senior High School</h2>
-              <p class="text-gray-600 mb-4">Grades 11 and 12</p>
-              <div class="text-sm text-gray-500">
-                ✓ STEM, HUMSS, ABM Strands<br>
-                ✓ College Preparation<br>
-                ✓ Work Immersion
-              </div>
-            </div>
-          </Card>
-        {/if}
-      </div>
-      
-      <!-- Sign In Prompt -->
-      <Card class="max-w-2xl mx-auto bg-blue-50 border-blue-200">
-        <div class="text-center py-8">
-          <svg class="w-20 h-20 text-blue-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-          </svg>
-          <h2 class="text-2xl font-bold text-gray-900 mb-4">Ready to Apply?</h2>
-          <p class="text-gray-700 mb-6">
-            Sign in with your Google account to access the enrollment form and submit your application.
-          </p>
-          <a href="/signin?redirect=/enroll">
-            <Button variant="primary" size="lg">
-              Sign In to Start Application
-            </Button>
-          </a>
-        </div>
-      </Card>
-    </div>
-  {:else if loading}
-    <div class="flex justify-center py-12">
-      <LoadingSpinner size="lg" />
-    </div>
-  {:else if showSuccess}
-    <!-- Success Message -->
-    <Card class="max-w-2xl mx-auto bg-green-50 border-green-200">
-      <div class="text-center py-8">
-        <svg class="w-20 h-20 text-green-600 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <h2 class="text-2xl font-bold text-green-800 mb-4">Enrollment Submitted Successfully!</h2>
-        <p class="text-gray-700 mb-6">
-          Your enrollment application has been submitted. You can view your application status below.
-        </p>
-        <Button variant="primary" onclick={() => showSuccess = false}>
-          View My Applications
-        </Button>
-      </div>
-    </Card>
-  {:else if !selectedType}
-    <!-- Enrollment Options for Authenticated Users -->
-    <div class="text-center mb-8">
-      <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">
-        Online Enrollment
-      </h1>
-      <p class="text-xl text-gray-600">
-        School Year {$enrollmentSettings.schoolYear}
-      </p>
-    </div>
-    
-    {#if myEnrollments.length > 0}
-      <!-- Existing Enrollments -->
-      <Card class="mb-8">
-        <h2 class="text-2xl font-bold mb-4">My Applications</h2>
-        <div class="space-y-4">
-          {#each myEnrollments as enrollment}
-            <div class="border rounded-lg p-4">
-              <div class="flex justify-between items-start">
-                <div>
-                  <h3 class="font-semibold text-lg">
-                    {enrollment.type === 'junior' ? 'Junior' : 'Senior'} High School - Grade {enrollment.gradeLevel}
-                  </h3>
-                  <p class="text-gray-600">Submitted on {new Date(enrollment.submittedAt).toLocaleDateString('en-PH')}</p>
+        <!-- Enrollment Options -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <!-- Junior High -->
+          <Card hover class="relative">
+            <div class="text-center">
+              <div class="mb-4">
+                <div class="mx-auto h-16 w-16 bg-green-100 rounded-full flex items-center justify-center">
+                  <span class="text-2xl font-bold text-green-700">JHS</span>
                 </div>
-                <span class={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(enrollment.status)}`}>
-                  {enrollment.status.charAt(0).toUpperCase() + enrollment.status.slice(1)}
-                </span>
               </div>
-              {#if enrollment.type === 'senior'}
-                <p class="text-sm text-gray-600 mt-2">
-                  Strand: {enrollment.strand} | Semester: {enrollment.semester}
-                </p>
+              <h3 class="text-xl font-semibold mb-2">Junior High School</h3>
+              <p class="text-gray-600 mb-4">Grades 7 to 10</p>
+              
+              {#if canEnroll('junior')}
+                <Button 
+                  variant="primary" 
+                  fullWidth={true}
+                  onclick={() => selectedType = 'junior'}
+                >
+                  Enroll for Junior High
+                </Button>
+              {:else if !$enrollmentSettings.juniorHighOpen}
+                <p class="text-sm text-gray-500">Junior High enrollment is closed</p>
+              {:else}
+                <p class="text-sm text-gray-500">You already have an enrollment for this school year</p>
               {/if}
             </div>
-          {/each}
+          </Card>
+          
+          <!-- Senior High -->
+          <Card hover class="relative">
+            <div class="text-center">
+              <div class="mb-4">
+                <div class="mx-auto h-16 w-16 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <span class="text-2xl font-bold text-yellow-600">SHS</span>
+                </div>
+              </div>
+              <h3 class="text-xl font-semibold mb-2">Senior High School</h3>
+              <p class="text-gray-600 mb-4">Grades 11 to 12</p>
+              
+              {#if canEnroll('senior')}
+                <Button 
+                  variant="secondary" 
+                  fullWidth={true}
+                  onclick={() => selectedType = 'senior'}
+                >
+                  Enroll for Senior High
+                </Button>
+              {:else if !$enrollmentSettings.seniorHighOpen}
+                <p class="text-sm text-gray-500">Senior High enrollment is closed</p>
+              {:else}
+                <p class="text-sm text-gray-500">You already have an enrollment for this school year</p>
+              {/if}
+            </div>
+          </Card>
         </div>
-      </Card>
-    {/if}
-    
-    <!-- Choose Enrollment Type -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-      {#if $enrollmentSettings.juniorHighOpen}
-        <Card hover class="cursor-pointer" onclick={() => selectedType = 'junior'}>
-          <div class="text-center py-8">
-            <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span class="text-2xl font-bold">JHS</span>
+        
+        <!-- Information -->
+        <Card class="bg-blue-50 border-blue-200">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+              </svg>
             </div>
-            <h2 class="text-2xl font-bold mb-2">Junior High School</h2>
-            <p class="text-gray-600 mb-4">Grades 7 to 10</p>
-            <Button variant="primary">Apply Now</Button>
+            <div class="ml-3 flex-1">
+              <h3 class="text-sm font-medium text-blue-800">Before you begin</h3>
+              <div class="mt-2 text-sm text-blue-700">
+                <ul class="list-disc list-inside space-y-1">
+                  <li>Make sure you have all required documents ready</li>
+                  <li>The form will take approximately 10-15 minutes to complete</li>
+                  <li>All fields marked with * are required</li>
+                  <li>You can only submit one enrollment per type per school year</li>
+                </ul>
+              </div>
+            </div>
           </div>
         </Card>
-      {/if}
-      
-      {#if $enrollmentSettings.seniorHighOpen}
-        <Card hover class="cursor-pointer" onclick={() => selectedType = 'senior'}>
-          <div class="text-center py-8">
-            <div class="w-20 h-20 bg-yellow-100 text-yellow-600 rounded-full flex items-center justify-center mx-auto mb-4">
-              <span class="text-2xl font-bold">SHS</span>
-            </div>
-            <h2 class="text-2xl font-bold mb-2">Senior High School</h2>
-            <p class="text-gray-600 mb-4">Grades 11 and 12</p>
-            <Button variant="secondary">Apply Now</Button>
-          </div>
-        </Card>
-      {/if}
-    </div>
-  {:else}
-    <!-- Enrollment Form -->
-    <div class="max-w-4xl mx-auto">
+      </div>
+    {:else}
+      <!-- Enrollment Form -->
       <div class="mb-6">
-        <button 
-          onclick={() => selectedType = null}
-          class="text-green-700 hover:text-green-800 font-medium inline-flex items-center"
+        <button
+          onclick={handleCancel}
+          class="inline-flex items-center text-sm text-gray-500 hover:text-gray-700"
         >
-          <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          <svg class="mr-1 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
-          Back to Options
+          Back to selection
         </button>
       </div>
       
-      <h1 class="text-3xl font-bold text-gray-900 mb-8">
-        {selectedType === 'junior' ? 'Junior' : 'Senior'} High School Enrollment Form
-      </h1>
-      
       {#if selectedType === 'junior'}
         <JuniorHighForm 
-          onSubmit={handleSubmit} 
+          onSubmit={handleSubmit}
           schoolYear={$enrollmentSettings.schoolYear}
+          disabled={submitting}
         />
       {:else}
         <SeniorHighForm 
-          onSubmit={handleSubmit} 
+          onSubmit={handleSubmit}
           schoolYear={$enrollmentSettings.schoolYear}
+          disabled={submitting}
         />
       {/if}
-    </div>
-  {/if}
+    {/if}
+  </div>
 </div>
