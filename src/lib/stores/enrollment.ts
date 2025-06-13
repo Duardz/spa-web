@@ -1,4 +1,6 @@
 import { writable } from 'svelte/store';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '$lib/firebase/config';
 import type { Enrollment } from '$lib/types';
 
 // Enrollment settings (controlled by admin)
@@ -17,6 +19,29 @@ function createEnrollmentSettingsStore() {
     juniorHighOpen: true,
     seniorHighOpen: true
   });
+  
+  // Fetch settings from Firestore and listen for changes
+  if (typeof window !== 'undefined') {
+    const settingsRef = doc(db, 'settings', 'enrollment');
+    
+    // Initial fetch
+    getDoc(settingsRef).then(docSnap => {
+      if (docSnap.exists()) {
+        set(docSnap.data() as EnrollmentSettings);
+      }
+    }).catch(err => {
+      console.error('Error fetching enrollment settings:', err);
+    });
+    
+    // Listen for real-time updates
+    const unsubscribe = onSnapshot(settingsRef, (docSnap) => {
+      if (docSnap.exists()) {
+        set(docSnap.data() as EnrollmentSettings);
+      }
+    }, (error) => {
+      console.error('Error listening to enrollment settings:', error);
+    });
+  }
   
   return {
     subscribe,

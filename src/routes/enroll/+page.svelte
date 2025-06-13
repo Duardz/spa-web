@@ -98,6 +98,14 @@
             Sign In with Google
           </Button>
         </a>
+        
+        <!-- Add refresh option -->
+        <div class="mt-6">
+          <p class="text-sm text-gray-500 mb-2">Already signed in but not seeing the form?</p>
+          <Button variant="outline" size="sm" onclick={() => window.location.reload()}>
+            Refresh Page
+          </Button>
+        </div>
       </div>
     </Card>
   {:else if loading}

@@ -12,7 +12,9 @@
   
   onMount(async () => {
     try {
+      console.log('Fetching news posts...');
       latestNews = await newsOps.getPublished(3);
+      console.log('Fetched news:', latestNews);
     } catch (error) {
       console.error('Error loading news:', error);
     } finally {

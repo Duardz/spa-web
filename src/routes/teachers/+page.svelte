@@ -28,7 +28,9 @@
   
   onMount(async () => {
     try {
+      console.log('Fetching teachers...');
       teachers = await teacherOps.getAll();
+      console.log('Fetched teachers:', teachers);
     } catch (err) {
       console.error('Error loading teachers:', err);
       error = 'Failed to load teachers. Please try again later.';

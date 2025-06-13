@@ -184,19 +184,52 @@ export const newsOps = {
 
   // Get published news
   async getPublished(limitCount = 10): Promise<NewsPost[]> {
-    const q = query(
-      collection(db, 'news'),
-      where('isPublished', '==', true),
-      orderBy('publishedAt', 'desc'),
-      limit(limitCount)
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      ...doc.data(),
-      id: doc.id,
-      publishedAt: convertTimestamp(doc.data().publishedAt),
-      updatedAt: convertTimestamp(doc.data().updatedAt)
-    })) as NewsPost[];
+    try {
+      console.log('Querying published news with limit:', limitCount);
+      const q = query(
+        collection(db, 'news'),
+        where('isPublished', '==', true),
+        orderBy('publishedAt', 'desc'),
+        limit(limitCount)
+      );
+      const snapshot = await getDocs(q);
+      console.log('Found', snapshot.size, 'published news posts');
+      
+      const posts = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id,
+        publishedAt: convertTimestamp(doc.data().publishedAt),
+        updatedAt: convertTimestamp(doc.data().updatedAt)
+      })) as NewsPost[];
+      
+      return posts;
+    } catch (error) {
+      console.error('Error fetching published news:', error);
+      // If the query fails (likely due to missing index), try without ordering
+      try {
+        console.log('Retrying without ordering...');
+        const q = query(
+          collection(db, 'news'),
+          where('isPublished', '==', true),
+          limit(limitCount)
+        );
+        const snapshot = await getDocs(q);
+        const posts = snapshot.docs.map(doc => ({
+          ...doc.data(),
+          id: doc.id,
+          publishedAt: convertTimestamp(doc.data().publishedAt),
+          updatedAt: convertTimestamp(doc.data().updatedAt)
+        })) as NewsPost[];
+        
+        // Sort manually
+        return posts.sort((a, b) => 
+          new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
+        );
+      } catch (fallbackError) {
+        console.error('Fallback query also failed:', fallbackError);
+        return [];
+      }
+    }
   },
 
   // Get all news (admin)

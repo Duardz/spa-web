@@ -26,10 +26,32 @@ function createUserStore(): UserStore {
   return {
     subscribe,
     loading,
-    signIn: signInWithGoogle,
+    signIn: async () => {
+      try {
+        loading.set(true);
+        const userData = await signInWithGoogle();
+        if (userData) {
+          set(userData);
+        }
+        return userData;
+      } catch (error) {
+        console.error('Store sign-in error:', error);
+        throw error;
+      } finally {
+        loading.set(false);
+      }
+    },
     signOut: async () => {
-      await signOut();
-      set(null);
+      try {
+        loading.set(true);
+        await signOut();
+        set(null);
+      } catch (error) {
+        console.error('Store sign-out error:', error);
+        throw error;
+      } finally {
+        loading.set(false);
+      }
     }
   };
 }

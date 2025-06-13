@@ -27,7 +27,7 @@
       <div class="hidden md:flex items-center space-x-4">
         <Navigation />
         
-        {#if $enrollmentSettings.isOpen && !$isAuthenticated}
+        {#if $enrollmentSettings.isOpen}
           <a href="/enroll" class="inline-block">
             <Button variant="secondary" size="sm">
               Enroll Now

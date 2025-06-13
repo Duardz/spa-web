@@ -25,9 +25,11 @@ export async function signInWithGoogle(): Promise<User | null> {
     // Check if user exists in Firestore
     const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
     
+    let userData: User;
+    
     if (!userDoc.exists()) {
       // Create new user document
-      const userData: User = {
+      userData = {
         uid: firebaseUser.uid,
         email: firebaseUser.email!,
         displayName: firebaseUser.displayName || 'User',
@@ -36,10 +38,14 @@ export async function signInWithGoogle(): Promise<User | null> {
       };
       
       await setDoc(doc(db, 'users', firebaseUser.uid), userData);
-      return userData;
+      console.log('Created new user:', userData);
+    } else {
+      userData = userDoc.data() as User;
+      console.log('Existing user:', userData);
     }
     
-    return userDoc.data() as User;
+    // Important: Return the user data so the store can update
+    return userData;
   } catch (error: any) {
     // Handle specific auth errors
     if (error.code === 'auth/popup-closed-by-user') {
@@ -90,8 +96,28 @@ export async function isAdmin(uid: string): Promise<boolean> {
 export function onAuthChange(callback: (user: User | null) => void): () => void {
   return onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
     if (firebaseUser) {
-      const userData = await getCurrentUserData(firebaseUser.uid);
-      callback(userData);
+      try {
+        // Always fetch fresh user data from Firestore
+        const userData = await getCurrentUserData(firebaseUser.uid);
+        if (userData) {
+          callback(userData);
+        } else {
+          // If no user doc exists, create one
+          const newUserData: User = {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email!,
+            displayName: firebaseUser.displayName || 'User',
+            photoURL: firebaseUser.photoURL || undefined,
+            role: 'student'
+          };
+          
+          await setDoc(doc(db, 'users', firebaseUser.uid), newUserData);
+          callback(newUserData);
+        }
+      } catch (error) {
+        console.error('Error in auth state change:', error);
+        callback(null);
+      }
     } else {
       callback(null);
     }
