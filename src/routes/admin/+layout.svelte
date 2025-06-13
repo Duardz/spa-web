@@ -49,27 +49,12 @@
     </Card>
   </div>
 {:else}
-  <div class="min-h-screen bg-gray-50">
-    <!-- Mobile menu button -->
-    <div class="lg:hidden fixed top-4 left-4 z-50">
-      <button
-        onclick={() => mobileMenuOpen = !mobileMenuOpen}
-        class="p-2 rounded-md bg-white shadow-md text-gray-600 hover:text-gray-900"
-      >
-        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          {#if mobileMenuOpen}
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          {:else}
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
-          {/if}
-        </svg>
-      </button>
-    </div>
-    
-    <!-- Sidebar -->
-    <div class={`fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-300 lg:translate-x-0 ${
+  <!-- Admin Layout without Header -->
+  <div class="min-h-screen bg-gray-50 flex">
+    <!-- Sidebar - Always visible on desktop, toggleable on mobile -->
+    <div class={`fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-300 ${
       mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-    }`}>
+    } lg:relative lg:translate-x-0`}>
       <AdminSidebar currentPath={$page.url.pathname} onNavigate={() => mobileMenuOpen = false} />
     </div>
     
@@ -84,8 +69,29 @@
     {/if}
     
     <!-- Main content -->
-    <div class="lg:pl-64">
-      <main class="py-6">
+    <div class="flex-1 flex flex-col">
+      <!-- Top bar for mobile -->
+      <div class="lg:hidden bg-white shadow-sm">
+        <div class="flex items-center justify-between px-4 py-3">
+          <button
+            onclick={() => mobileMenuOpen = !mobileMenuOpen}
+            class="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          >
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              {#if mobileMenuOpen}
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              {:else}
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+              {/if}
+            </svg>
+          </button>
+          <div class="text-lg font-semibold text-gray-900">Admin Panel</div>
+          <div class="w-10"></div>
+        </div>
+      </div>
+      
+      <!-- Page content -->
+      <main class="flex-1 py-6">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {@render children()}
         </div>

@@ -37,11 +37,6 @@
         
         {#if $isAuthenticated}
           <div class="flex items-center space-x-3">
-            {#if $isAdmin}
-              <a href="/admin" class="text-sm bg-green-100 text-green-800 px-3 py-1 rounded-full font-medium hover:bg-green-200 transition-colors">
-                Admin Dashboard
-              </a>
-            {/if}
             <img 
               src={$user?.photoURL || '/default-avatar.png'} 
               alt="Profile" 
