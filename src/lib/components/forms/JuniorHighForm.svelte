@@ -9,7 +9,7 @@
   import { onMount } from 'svelte';
   
   interface Props {
-    onSubmit: (data: Omit<JuniorHighEnrollment, 'id'>) => Promise<void>;
+    onSubmit: (data: Omit<JuniorHighEnrollment, 'id' | 'submittedAt' | 'updatedAt' | 'userId' | 'userEmail' | 'status'>) => Promise<void>;
     schoolYear: string;
     disabled?: boolean;
   }
@@ -208,14 +208,9 @@
         return acc;
       }, {} as any);
       
-      const enrollmentData: Omit<JuniorHighEnrollment, 'id'> = {
+      const enrollmentData: Omit<JuniorHighEnrollment, 'id' | 'submittedAt' | 'updatedAt' | 'userId' | 'userEmail' | 'status'> = {
         type: 'junior',
-        status: 'submitted',
         schoolYear,
-        userId: '', // Will be set by parent component
-        userEmail: '', // Will be set by parent component
-        submittedAt: new Date(),
-        updatedAt: new Date(),
         ...sanitizedData,
         generalAverage: formData.generalAverage
       };

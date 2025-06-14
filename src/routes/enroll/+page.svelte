@@ -18,6 +18,11 @@
   let error = $state('');
   let success = $state(false);
   
+  // Sanitize error messages to prevent XSS
+  function sanitizeError(message: string): string {
+    return message.replace(/[<>]/g, '');
+  }
+  
   // Load user's existing enrollments
   async function loadEnrollments() {
     if (!$user) return;
@@ -26,8 +31,25 @@
       loading = true;
       error = '';
       const enrollments = await enrollmentOps.getByUser($user.uid);
-      existingEnrollments = enrollments;
-      userEnrollments.setEnrollments(enrollments);
+      
+      // Fix any enrollments missing the type field
+      const fixedEnrollments = enrollments.map((enrollment: any) => {
+        if (!enrollment.type && enrollment.gradeLevel) {
+          const gradeNum = parseInt(enrollment.gradeLevel);
+          const inferredType = gradeNum <= 10 ? 'junior' : 'senior';
+          return {
+            ...enrollment,
+            type: inferredType
+          } as Enrollment;
+        }
+        return enrollment as Enrollment;
+      });
+      
+      existingEnrollments = fixedEnrollments;
+      userEnrollments.setEnrollments(fixedEnrollments);
+      
+      // Debug log
+      console.log('Loaded enrollments:', fixedEnrollments);
     } catch (err) {
       console.error('Error loading enrollments:', err);
       error = 'Failed to load your enrollments. Please refresh the page.';
@@ -36,10 +58,16 @@
     }
   }
   
-  // Handle form submission
-  async function handleSubmit(data: Omit<JuniorHighEnrollment | SeniorHighEnrollment, 'id'>) {
+  // Handle form submission with improved validation
+  async function handleSubmit(data: Omit<JuniorHighEnrollment, 'id' | 'submittedAt' | 'updatedAt' | 'userId' | 'userEmail' | 'status'> | Omit<SeniorHighEnrollment, 'id' | 'submittedAt' | 'updatedAt' | 'userId' | 'userEmail' | 'status'>) {
     if (!$user) {
       error = 'You must be signed in to submit an enrollment.';
+      return;
+    }
+    
+    // Additional client-side validation
+    if (!data.type || !['junior', 'senior'].includes(data.type)) {
+      error = 'Invalid enrollment type.';
       return;
     }
     
@@ -47,18 +75,25 @@
     error = '';
     
     try {
-      // Add user info to enrollment data
+      // Create enrollment data without id
       const enrollmentData = {
         ...data,
         userId: $user.uid,
-        userEmail: $user.email
+        userEmail: $user.email || '',
+        submittedAt: new Date(),
+        updatedAt: new Date(),
+        status: 'submitted' as const
       };
       
-      // Submit to Firestore
+      // Submit to Firestore (will handle date conversion)
       const enrollmentId = await enrollmentOps.create(enrollmentData);
       
-      // Update local state
-      const newEnrollment = { ...enrollmentData, id: enrollmentId } as Enrollment;
+      // Create the properly typed enrollment for local state
+      const newEnrollment = {
+        ...enrollmentData,
+        id: enrollmentId
+      } as Enrollment;
+      
       existingEnrollments = [...existingEnrollments, newEnrollment];
       userEnrollments.addEnrollment(newEnrollment);
       
@@ -69,14 +104,19 @@
       // Scroll to top
       window.scrollTo({ top: 0, behavior: 'smooth' });
       
+      // Clear success message after 5 seconds
+      setTimeout(() => success = false, 5000);
+      
     } catch (err: any) {
       console.error('Submission error:', err);
       
-      // Provide user-friendly error messages
+      // Provide user-friendly error messages with sanitization
       if (err.code === 'permission-denied') {
         error = 'You do not have permission to submit enrollments. Please contact support.';
       } else if (err.code === 'unavailable') {
         error = 'Unable to connect to the server. Please check your internet connection.';
+      } else if (err.message) {
+        error = sanitizeError(err.message);
       } else {
         error = 'Failed to submit enrollment. Please try again or contact support.';
       }
@@ -94,19 +134,59 @@
     error = '';
   }
   
-  // Check if user can enroll for a specific type
+  // Check if user can enroll for a specific type with detailed logging
   function canEnroll(type: 'junior' | 'senior'): boolean {
-    // Check if enrollment is open for this type
-    if (!$enrollmentSettings.isOpen) return false;
-    if (type === 'junior' && !$enrollmentSettings.juniorHighOpen) return false;
-    if (type === 'senior' && !$enrollmentSettings.seniorHighOpen) return false;
+    // Debug log
+    console.log(`Checking if can enroll for ${type}:`, {
+      isOpen: $enrollmentSettings.isOpen,
+      typeOpen: type === 'junior' ? $enrollmentSettings.juniorHighOpen : $enrollmentSettings.seniorHighOpen,
+      existingEnrollments: existingEnrollments.filter(e => e.type === type),
+      schoolYear: $enrollmentSettings.schoolYear,
+      allEnrollments: existingEnrollments // Show all enrollments for debugging
+    });
+    
+    // Check if enrollment is open globally
+    if (!$enrollmentSettings.isOpen) {
+      console.log('Enrollment is not open globally');
+      return false;
+    }
+    
+    // Check if enrollment is open for this specific type
+    // Note: Default to true if undefined to prevent issues
+    const isJuniorOpen = $enrollmentSettings.juniorHighOpen ?? true;
+    const isSeniorOpen = $enrollmentSettings.seniorHighOpen ?? true;
+    
+    if (type === 'junior' && !isJuniorOpen) {
+      console.log('Junior High enrollment is not open');
+      return false;
+    }
+    if (type === 'senior' && !isSeniorOpen) {
+      console.log('Senior High enrollment is not open');
+      return false;
+    }
     
     // Check if user already has a submitted enrollment for this school year
-    const hasExisting = existingEnrollments.some(e => 
-      e.type === type && 
-      e.schoolYear === $enrollmentSettings.schoolYear &&
-      e.status !== 'archived'
-    );
+    // Handle cases where type might be missing from old enrollments
+    const hasExisting = existingEnrollments.some((e: any) => {
+      // Check if enrollment has a type field
+      if (!e.type) {
+        console.warn('Enrollment missing type field:', e);
+        // Try to infer type from gradeLevel if possible
+        if (e.gradeLevel) {
+          const gradeNum = parseInt(e.gradeLevel);
+          const inferredType = gradeNum <= 10 ? 'junior' : 'senior';
+          return inferredType === type && e.schoolYear === $enrollmentSettings.schoolYear && e.status !== 'archived';
+        }
+        return false; // Can't determine type, assume it's not blocking
+      }
+      return e.type === type && 
+             e.schoolYear === $enrollmentSettings.schoolYear &&
+             e.status !== 'archived';
+    });
+    
+    if (hasExisting) {
+      console.log(`User already has ${type} enrollment for ${$enrollmentSettings.schoolYear}`);
+    }
     
     return !hasExisting;
   }
@@ -296,9 +376,10 @@
               
               {#if canEnroll('senior')}
                 <Button 
-                  variant="secondary" 
+                  variant="primary"
                   fullWidth={true}
                   onclick={() => selectedType = 'senior'}
+                  class="!bg-gradient-to-r !from-yellow-500 !to-yellow-600"
                 >
                   Enroll for Senior High
                 </Button>
@@ -353,7 +434,7 @@
           schoolYear={$enrollmentSettings.schoolYear}
           disabled={submitting}
         />
-      {:else}
+      {:else if selectedType === 'senior'}
         <SeniorHighForm 
           onSubmit={handleSubmit}
           schoolYear={$enrollmentSettings.schoolYear}

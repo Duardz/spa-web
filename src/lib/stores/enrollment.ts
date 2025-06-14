@@ -13,13 +13,19 @@ interface EnrollmentSettings {
   message?: string;
 }
 
+// Default settings to ensure all properties are defined
+const DEFAULT_SETTINGS: EnrollmentSettings = {
+  isOpen: true,
+  schoolYear: '2025-2026',
+  juniorHighOpen: true,
+  seniorHighOpen: true,
+  message: ''
+};
+
 function createEnrollmentSettingsStore() {
-  const { subscribe, set, update } = writable<EnrollmentSettings>({
-    isOpen: false,
-    schoolYear: '2025-2026',
-    juniorHighOpen: true,
-    seniorHighOpen: true
-  });
+  const { subscribe, set, update } = writable<EnrollmentSettings>(DEFAULT_SETTINGS);
+  
+  let unsubscribe: (() => void) | null = null;
   
   // Fetch settings from Firestore and listen for changes
   if (typeof window !== 'undefined') {
@@ -28,16 +34,36 @@ function createEnrollmentSettingsStore() {
     // Initial fetch
     getDoc(settingsRef).then(docSnap => {
       if (docSnap.exists()) {
-        set(docSnap.data() as EnrollmentSettings);
+        const data = docSnap.data();
+        // Merge with defaults to ensure all properties exist
+        set({
+          ...DEFAULT_SETTINGS,
+          ...data,
+          // Ensure boolean values are properly set
+          isOpen: data.isOpen ?? DEFAULT_SETTINGS.isOpen,
+          juniorHighOpen: data.juniorHighOpen ?? DEFAULT_SETTINGS.juniorHighOpen,
+          seniorHighOpen: data.seniorHighOpen ?? DEFAULT_SETTINGS.seniorHighOpen
+        } as EnrollmentSettings);
+      } else {
+        console.warn('Enrollment settings document not found, using defaults');
       }
     }).catch(err => {
       console.error('Error fetching enrollment settings:', err);
+      // Keep default settings on error
     });
     
     // Listen for real-time updates
-    const unsubscribe = onSnapshot(settingsRef, (docSnap) => {
+    unsubscribe = onSnapshot(settingsRef, (docSnap) => {
       if (docSnap.exists()) {
-        set(docSnap.data() as EnrollmentSettings);
+        const data = docSnap.data();
+        set({
+          ...DEFAULT_SETTINGS,
+          ...data,
+          // Ensure boolean values are properly set
+          isOpen: data.isOpen ?? DEFAULT_SETTINGS.isOpen,
+          juniorHighOpen: data.juniorHighOpen ?? DEFAULT_SETTINGS.juniorHighOpen,
+          seniorHighOpen: data.seniorHighOpen ?? DEFAULT_SETTINGS.seniorHighOpen
+        } as EnrollmentSettings);
       }
     }, (error) => {
       console.error('Error listening to enrollment settings:', error);
@@ -49,7 +75,12 @@ function createEnrollmentSettingsStore() {
     setSettings: (settings: EnrollmentSettings) => set(settings),
     toggleEnrollment: () => update(s => ({ ...s, isOpen: !s.isOpen })),
     toggleJuniorHigh: () => update(s => ({ ...s, juniorHighOpen: !s.juniorHighOpen })),
-    toggleSeniorHigh: () => update(s => ({ ...s, seniorHighOpen: !s.seniorHighOpen }))
+    toggleSeniorHigh: () => update(s => ({ ...s, seniorHighOpen: !s.seniorHighOpen })),
+    cleanup: () => {
+      if (unsubscribe) {
+        unsubscribe();
+      }
+    }
   };
 }
 
@@ -61,6 +92,12 @@ function createUserEnrollmentsStore() {
     subscribe,
     setEnrollments: (enrollments: Enrollment[]) => set(enrollments),
     addEnrollment: (enrollment: Enrollment) => update(e => [...e, enrollment]),
+    updateEnrollment: (id: string, updates: Partial<Enrollment>) => 
+      update(enrollments => enrollments.map(e => 
+        e.id === id ? { ...e, ...updates } as Enrollment : e
+      )),
+    removeEnrollment: (id: string) => 
+      update(enrollments => enrollments.filter(e => e.id !== id)),
     clearEnrollments: () => set([])
   };
 }
