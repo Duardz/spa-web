@@ -6,11 +6,11 @@
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import { teacherOps } from '$lib/firebase/firestore';
   import type { Teacher } from '$lib/types';
-	import { error } from '@sveltejs/kit';
   
   let teachers = $state<Teacher[]>([]);
   let loading = $state(true);
   let deleting = $state<string | null>(null);
+  let expandedDepartment = $state<string | null>(null);
   
   async function loadTeachers() {
     try {
@@ -56,18 +56,20 @@
     return grouped;
   });
   
-  onMount(async () => {
-    try {
-      console.log('Fetching teachers...');
-      const fetchedTeachers = await teacherOps.getAll();
-      console.log('[snapshot] Fetched teachers:', $state.snapshot(fetchedTeachers));
-      teachers = fetchedTeachers;
-    } catch (err) {
-      console.error('Error loading teachers:', err);
-      err = 'Failed to load teachers. Please try again later.';
-    } finally {
-      loading = false;
-    }
+  const departmentCounts = $derived(() => {
+    const counts: Record<string, number> = {};
+    Object.entries(teachersByDepartment()).forEach(([dept, teachers]) => {
+      counts[dept] = teachers.length;
+    });
+    return counts;
+  });
+  
+  function toggleDepartment(dept: string) {
+    expandedDepartment = expandedDepartment === dept ? null : dept;
+  }
+  
+  onMount(() => {
+    loadTeachers();
   });
 </script>
 
@@ -75,27 +77,53 @@
   <title>Manage Teachers - Saint Patrick's Academy Admin</title>
 </svelte:head>
 
-<div class="space-y-6">
-  <!-- Header -->
-  <div class="flex justify-between items-center">
+<div class="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-7xl mx-auto">
+  <!-- Header - Mobile Optimized -->
+  <div class="space-y-4">
     <div>
-      <h1 class="text-3xl font-bold text-gray-900">Teachers</h1>
-      <p class="text-gray-600">Manage faculty and staff members</p>
+      <h1 class="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900">Teachers</h1>
+      <p class="text-xs sm:text-sm md:text-base text-gray-600 mt-1">
+        Manage faculty and staff members
+      </p>
     </div>
-    <div class="flex space-x-3">
-      <Button variant="outline" onclick={loadTeachers}>
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="flex gap-2 justify-end">
+      <Button variant="outline" onclick={loadTeachers} size="sm">
+        <svg class="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
-        Refresh
+        <span class="hidden sm:inline">Refresh</span>
       </Button>
-      <Button variant="primary" onclick={() => goto('/admin/teachers/new')}>
-        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <Button variant="primary" onclick={() => goto('/admin/teachers/new')} size="sm">
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
         </svg>
         Add Teacher
       </Button>
     </div>
+  </div>
+  
+  <!-- Summary Stats -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+    <Card class="text-center p-3 sm:p-4">
+      <p class="text-2xl sm:text-3xl font-bold text-gray-900">{teachers.length}</p>
+      <p class="text-xs sm:text-sm text-gray-600">Total Teachers</p>
+    </Card>
+    <Card class="text-center p-3 sm:p-4">
+      <p class="text-2xl sm:text-3xl font-bold text-green-600">{Object.keys(teachersByDepartment()).length}</p>
+      <p class="text-xs sm:text-sm text-gray-600">Departments</p>
+    </Card>
+    <Card class="text-center p-3 sm:p-4 col-span-2 sm:col-span-1">
+      <p class="text-2xl sm:text-3xl font-bold text-blue-600">
+        {Math.round(teachers.length / Object.keys(teachersByDepartment()).length) || 0}
+      </p>
+      <p class="text-xs sm:text-sm text-gray-600">Avg per Dept</p>
+    </Card>
+    <Card class="text-center p-3 sm:p-4 col-span-2 sm:col-span-1">
+      <p class="text-2xl sm:text-3xl font-bold text-purple-600">
+        {teachers.filter(t => t.email).length}
+      </p>
+      <p class="text-xs sm:text-sm text-gray-600">With Email</p>
+    </Card>
   </div>
   
   {#if loading}
@@ -104,103 +132,193 @@
     </div>
   {:else if teachers.length === 0}
     <Card>
-      <div class="text-center py-12">
-        <svg class="w-20 h-20 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div class="text-center py-8 sm:py-12">
+        <svg class="w-16 h-16 sm:w-20 sm:h-20 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
         </svg>
-        <h3 class="text-lg font-medium text-gray-900 mb-2">No Teachers Found</h3>
-        <p class="text-gray-600 mb-4">Get started by adding your first teacher.</p>
-        <Button variant="primary" onclick={() => goto('/admin/teachers/new')}>
+        <h3 class="text-base sm:text-lg font-medium text-gray-900 mb-2">No Teachers Found</h3>
+        <p class="text-sm text-gray-600 mb-4">Get started by adding your first teacher.</p>
+        <Button variant="primary" onclick={() => goto('/admin/teachers/new')} size="sm">
           Add First Teacher
         </Button>
       </div>
     </Card>
   {:else}
-    <!-- Teachers by Department -->
-    {#each Object.entries(teachersByDepartment()) as [department, deptTeachers]}
-      <Card>
-        <h2 class="text-xl font-semibold mb-4 text-gray-900">{department} Department</h2>
-        
-        <div class="overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Teacher
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Position
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Contact
-                </th>
-                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Order
-                </th>
-                <th class="relative px-6 py-3">
-                  <span class="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody class="bg-white divide-y divide-gray-200">
+    <!-- Mobile View - Accordion Style -->
+    <div class="sm:hidden space-y-3">
+      {#each Object.entries(teachersByDepartment()) as [department, deptTeachers]}
+        <Card class="overflow-hidden">
+          <button
+            onclick={() => toggleDepartment(department)}
+            class="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          >
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <div class="text-left">
+                <h3 class="font-medium text-gray-900">{department}</h3>
+                <p class="text-xs text-gray-500">{deptTeachers.length} teachers</p>
+              </div>
+            </div>
+            <svg 
+              class={`w-5 h-5 text-gray-400 transition-transform ${expandedDepartment === department ? 'rotate-180' : ''}`} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+          
+          {#if expandedDepartment === department}
+            <div class="border-t divide-y">
               {#each deptTeachers as teacher}
-                <tr class="hover:bg-gray-50">
-                  <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="flex items-center">
-                      {#if teacher.imageUrl}
-                        <img 
-                          src={teacher.imageUrl} 
-                          alt={teacher.name}
-                          class="w-10 h-10 rounded-full object-cover mr-3"
-                        />
-                      {:else}
-                        <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center mr-3">
-                          <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
-                          </svg>
-                        </div>
-                      {/if}
-                      <div class="text-sm font-medium text-gray-900">
-                        {teacher.name}
-                      </div>
-                    </div>
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {teacher.position}
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {#if teacher.email}
-                      <a href="mailto:{teacher.email}" class="text-green-600 hover:text-green-700">
-                        {teacher.email}
-                      </a>
+                <div class="p-4 bg-gray-50">
+                  <div class="flex items-start gap-3 mb-3">
+                    {#if teacher.imageUrl}
+                      <img 
+                        src={teacher.imageUrl} 
+                        alt={teacher.name}
+                        class="w-12 h-12 rounded-full object-cover"
+                      />
                     {:else}
-                      <span class="text-gray-400">—</span>
+                      <div class="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
+                        <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                        </svg>
+                      </div>
                     {/if}
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {teacher.order}
-                  </td>
-                  <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                    <a 
-                      href="/admin/teachers/{teacher.id}"
-                      class="text-green-600 hover:text-green-900 mr-3"
+                    <div class="flex-1">
+                      <h4 class="font-medium text-gray-900">{teacher.name}</h4>
+                      <p class="text-sm text-gray-600">{teacher.position}</p>
+                      {#if teacher.email}
+                        <a href="mailto:{teacher.email}" class="text-xs text-green-600 hover:text-green-700">
+                          {teacher.email}
+                        </a>
+                      {/if}
+                    </div>
+                  </div>
+                  
+                  <div class="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="xs"
+                      onclick={() => goto(`/admin/teachers/${teacher.id}`)}
+                      fullWidth
                     >
                       Edit
-                    </a>
-                    <button
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="xs"
                       onclick={() => deleteTeacher(teacher.id!)}
                       disabled={deleting === teacher.id}
-                      class="text-red-600 hover:text-red-900 disabled:opacity-50"
+                      fullWidth
                     >
                       {deleting === teacher.id ? 'Deleting...' : 'Delete'}
-                    </button>
-                  </td>
-                </tr>
+                    </Button>
+                  </div>
+                </div>
               {/each}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-    {/each}
+            </div>
+          {/if}
+        </Card>
+      {/each}
+    </div>
+    
+    <!-- Desktop View - Tables -->
+    <div class="hidden sm:block space-y-6">
+      {#each Object.entries(teachersByDepartment()) as [department, deptTeachers]}
+        <Card>
+          <div class="px-6 py-4 border-b border-gray-200">
+            <h2 class="text-lg font-semibold text-gray-900">{department} Department</h2>
+            <p class="text-sm text-gray-600">{deptTeachers.length} teacher{deptTeachers.length !== 1 ? 's' : ''}</p>
+          </div>
+          
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead class="bg-gray-50">
+                <tr>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Teacher
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Position
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Contact
+                  </th>
+                  <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Order
+                  </th>
+                  <th class="relative px-6 py-3">
+                    <span class="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                {#each deptTeachers as teacher}
+                  <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                      <div class="flex items-center">
+                        {#if teacher.imageUrl}
+                          <img 
+                            src={teacher.imageUrl} 
+                            alt={teacher.name}
+                            class="w-10 h-10 rounded-full object-cover mr-3"
+                          />
+                        {:else}
+                          <div class="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center mr-3">
+                            <svg class="w-6 h-6 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                            </svg>
+                          </div>
+                        {/if}
+                        <div class="text-sm font-medium text-gray-900">
+                          {teacher.name}
+                        </div>
+                      </div>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {teacher.position}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {#if teacher.email}
+                        <a href="mailto:{teacher.email}" class="text-green-600 hover:text-green-700">
+                          {teacher.email}
+                        </a>
+                      {:else}
+                        <span class="text-gray-400">—</span>
+                      {/if}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      {teacher.order}
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <a 
+                        href="/admin/teachers/{teacher.id}"
+                        class="text-green-600 hover:text-green-900 mr-3"
+                      >
+                        Edit
+                      </a>
+                      <button
+                        onclick={() => deleteTeacher(teacher.id!)}
+                        disabled={deleting === teacher.id}
+                        class="text-red-600 hover:text-red-900 disabled:opacity-50"
+                      >
+                        {deleting === teacher.id ? 'Deleting...' : 'Delete'}
+                      </button>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      {/each}
+    </div>
   {/if}
 </div>
