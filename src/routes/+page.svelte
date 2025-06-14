@@ -67,95 +67,89 @@
 </script>
 
 <svelte:head>
-  <title>Saint Patrick's Academy - Quality Catholic Education in Agusan del Sur</title>
-  <meta name="description" content="Saint Patrick's Academy provides quality Catholic education for Junior and Senior High School students in San Francisco, Agusan del Sur.">
+  <title>Saint Patrick's Academy - Quality Catholic Education in Paltic, Dingalan, Aurora</title>
+  <meta name="description" content="Saint Patrick's Academy provides quality Catholic education for Junior and Senior High School students in Paltic, Dingalan, Aurora.">
 </svelte:head>
 
-<!-- Hero Section with Parallax -->
-<section class="relative min-h-screen bg-gradient-to-br from-green-900 via-green-800 to-green-900 overflow-hidden">
-  <!-- Animated Background Pattern -->
-  <div class="absolute inset-0 opacity-10">
-    <div class="absolute inset-0 bg-[url('/shamrock-pattern.svg')] bg-repeat animate-float-slow"></div>
+<!-- Hero Section with Elegant Design -->
+<section class="relative min-h-screen bg-gradient-to-br from-green-50 via-white to-green-50 overflow-hidden">
+  <!-- Subtle Pattern Background -->
+  <div class="absolute inset-0 opacity-5">
+    <div class="absolute inset-0 bg-[url('/shamrock-pattern.svg')] bg-repeat"></div>
   </div>
   
-  <!-- Gradient Overlay -->
-  <div class="absolute inset-0 bg-gradient-to-b from-transparent via-green-900/50 to-green-900"></div>
-  
-  <!-- Floating Particles -->
-  <div class="absolute inset-0">
-    {#each Array(20) as _, i}
-      <div 
-        class="absolute w-2 h-2 bg-green-400/20 rounded-full animate-float"
-        style="
-          left: {Math.random() * 100}%;
-          top: {Math.random() * 100}%;
-          animation-delay: {Math.random() * 5}s;
-          animation-duration: {15 + Math.random() * 10}s;
-        "
-      ></div>
-    {/each}
-  </div>
+  <!-- Decorative Elements -->
+  <div class="absolute top-0 left-0 w-96 h-96 bg-green-100 rounded-full filter blur-3xl opacity-20 -translate-x-1/2 -translate-y-1/2"></div>
+  <div class="absolute bottom-0 right-0 w-96 h-96 bg-gold-100 rounded-full filter blur-3xl opacity-20 translate-x-1/2 translate-y-1/2"></div>
   
   <!-- Content -->
   <div class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-screen flex items-center">
     <div class="text-center w-full">
-      <!-- School Crest with Glow Effect -->
+      <!-- School Crest -->
       <div class="mb-8 relative inline-block">
-        <div class="absolute inset-0 bg-gold-400/30 blur-3xl"></div>
+        <div class="absolute inset-0 bg-green-200/30 blur-2xl rounded-full"></div>
         <img 
           src="/logo.png" 
           alt="Saint Patrick's Academy Crest" 
-          class="h-32 w-32 md:h-40 md:w-40 relative animate-float filter drop-shadow-2xl"
+          class="h-32 w-32 md:h-40 md:w-40 relative filter drop-shadow-lg"
         />
       </div>
       
-      <h1 class="text-5xl md:text-7xl font-bold text-white mb-6 animate-fade-in-up font-serif">
+      <h1 class="text-4xl md:text-6xl font-bold text-green-800 mb-4 font-serif">
         Saint Patrick's Academy
       </h1>
       
-      <div class="flex items-center justify-center space-x-4 mb-6 animate-fade-in-up animation-delay-200">
-        <div class="h-px bg-gold-400 w-16 md:w-24"></div>
-        <svg class="w-8 h-8 text-gold-400" fill="currentColor" viewBox="0 0 24 24">
+      <div class="flex items-center justify-center space-x-4 mb-4">
+        <div class="h-px bg-gold-400/50 w-16 md:w-24"></div>
+        <svg class="w-6 h-6 text-gold-500" fill="currentColor" viewBox="0 0 24 24">
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
         </svg>
-        <div class="h-px bg-gold-400 w-16 md:w-24"></div>
+        <div class="h-px bg-gold-400/50 w-16 md:w-24"></div>
       </div>
       
-      <p class="text-xl md:text-2xl text-green-100 mb-4 animate-fade-in-up animation-delay-200">
+      <p class="text-lg md:text-xl text-green-700 mb-2">
         Excellence in Catholic Education Since 1970
       </p>
       
-      <p class="text-lg md:text-xl text-green-200 mb-12 max-w-3xl mx-auto animate-fade-in-up animation-delay-400">
-        Nurturing Minds • Building Character • Inspiring Excellence
+      <p class="text-base md:text-lg text-gray-600 mb-2">
+        Paltic, Dingalan, Aurora
       </p>
       
-      <div class="flex flex-col sm:flex-row gap-4 justify-center animate-fade-in-up animation-delay-600">
+      <p class="text-base md:text-lg text-gray-500 mb-10 max-w-3xl mx-auto italic">
+        "Nurturing Minds • Building Character • Inspiring Excellence"
+      </p>
+      
+      <div class="flex flex-col sm:flex-row gap-4 justify-center">
         {#if $enrollmentSettings.isOpen}
-          <Button size="xl" variant="secondary" shadow rounded="full" pulse>
+          <Button 
+            size="lg" 
+            variant="primary" 
+            class="bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all"
+            rounded="full"
+          >
             <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             Enroll Now for SY {$enrollmentSettings.schoolYear}
           </Button>
         {/if}
         
         <Button 
-          size="xl" 
+          size="lg" 
           variant="outline" 
-          class="!text-white !border-white hover:!bg-white/10 backdrop-blur-sm" 
+          class="border-green-600 text-green-700 hover:bg-green-50" 
           rounded="full"
         >
           <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Watch Video Tour
+          Learn More About Us
         </Button>
       </div>
       
       <!-- Scroll Indicator -->
       <div class="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
-        <svg class="w-6 h-6 text-white/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-6 h-6 text-green-600/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
         </svg>
       </div>
@@ -164,29 +158,29 @@
 </section>
 
 <!-- Stats Counter Section -->
-<section class="py-16 bg-gradient-to-r from-green-700 to-green-800 -mt-px">
+<section class="py-16 bg-white border-y border-gray-100">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="grid grid-cols-2 md:grid-cols-4 gap-8">
       {#each stats as stat, i}
-        <div class="text-center animate-fade-in-up" style="animation-delay: {i * 100}ms">
-          <div class="inline-flex items-center justify-center w-16 h-16 bg-white/10 rounded-full mb-4 backdrop-blur-sm">
-            <svg class="w-8 h-8 text-gold-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="text-center">
+          <div class="inline-flex items-center justify-center w-14 h-14 bg-green-50 rounded-full mb-3">
+            <svg class="w-7 h-7 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d={stat.icon} />
             </svg>
           </div>
-          <div class="text-3xl md:text-4xl font-bold text-white mb-2 font-mono">{stat.number}</div>
-          <div class="text-green-100 text-sm md:text-base">{stat.label}</div>
+          <div class="text-2xl md:text-3xl font-bold text-gray-800 mb-1">{stat.number}</div>
+          <div class="text-gray-600 text-sm">{stat.label}</div>
         </div>
       {/each}
     </div>
   </div>
 </section>
 
-<!-- Features Section with Icons -->
-<section class="py-20 md:py-28 bg-gradient-to-b from-cream to-white">
+<!-- Features Section -->
+<section class="py-20 bg-gray-50">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="text-center mb-16">
-      <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4 font-serif">
+    <div class="text-center mb-12">
+      <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4 font-serif">
         Why Choose Saint Patrick's Academy?
       </h2>
       <p class="text-lg text-gray-600 max-w-3xl mx-auto">
@@ -195,74 +189,50 @@
     </div>
     
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-      <Card hover shadow="lg" gradient class="text-center group">
-        <div class="w-20 h-20 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
-          <svg class="w-10 h-10 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <Card class="text-center p-8 hover:shadow-lg transition-shadow duration-300 bg-white">
+        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
           </svg>
         </div>
-        <h3 class="text-xl font-semibold mb-3 font-serif">Academic Excellence</h3>
+        <h3 class="text-xl font-semibold mb-3 text-gray-800">Academic Excellence</h3>
         <p class="text-gray-600 leading-relaxed">
           Comprehensive curriculum aligned with DepEd standards, preparing students for higher education and future careers.
         </p>
-        <div class="mt-6 flex justify-center">
-          <a href="/about" class="text-green-600 hover:text-green-700 font-medium inline-flex items-center group-hover:gap-3 gap-2 transition-all">
-            Learn More
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-          </a>
-        </div>
       </Card>
       
-      <Card hover shadow="lg" gradient class="text-center group">
-        <div class="w-20 h-20 bg-gradient-to-br from-gold-100 to-gold-200 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
-          <svg class="w-10 h-10 text-gold-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <Card class="text-center p-8 hover:shadow-lg transition-shadow duration-300 bg-white">
+        <div class="w-16 h-16 bg-gold-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg class="w-8 h-8 text-gold-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/>
           </svg>
         </div>
-        <h3 class="text-xl font-semibold mb-3 font-serif">Values Formation</h3>
+        <h3 class="text-xl font-semibold mb-3 text-gray-800">Values Formation</h3>
         <p class="text-gray-600 leading-relaxed">
           Strong Catholic foundation that nurtures faith, character, and moral values in our students.
         </p>
-        <div class="mt-6 flex justify-center">
-          <a href="/about" class="text-green-600 hover:text-green-700 font-medium inline-flex items-center group-hover:gap-3 gap-2 transition-all">
-            Learn More
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-          </a>
-        </div>
       </Card>
       
-      <Card hover shadow="lg" gradient class="text-center group">
-        <div class="w-20 h-20 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 transition-transform duration-300">
-          <svg class="w-10 h-10 text-green-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <Card class="text-center p-8 hover:shadow-lg transition-shadow duration-300 bg-white">
+        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+          <svg class="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
           </svg>
         </div>
-        <h3 class="text-xl font-semibold mb-3 font-serif">Community Spirit</h3>
+        <h3 class="text-xl font-semibold mb-3 text-gray-800">Community Spirit</h3>
         <p class="text-gray-600 leading-relaxed">
           A supportive environment where students, teachers, and parents work together for success.
         </p>
-        <div class="mt-6 flex justify-center">
-          <a href="/about" class="text-green-600 hover:text-green-700 font-medium inline-flex items-center group-hover:gap-3 gap-2 transition-all">
-            Learn More
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-            </svg>
-          </a>
-        </div>
       </Card>
     </div>
   </div>
 </section>
 
 <!-- Academic Programs Section -->
-<section class="py-20 md:py-28 bg-gradient-to-b from-gray-50 to-white">
+<section class="py-20 bg-white">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="text-center mb-16">
-      <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4 font-serif">
+    <div class="text-center mb-12">
+      <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4 font-serif">
         Our Academic Programs
       </h2>
       <p class="text-lg text-gray-600 max-w-3xl mx-auto">
@@ -271,86 +241,70 @@
     </div>
     
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      <Card shadow="xl" class="overflow-hidden group hover:shadow-2xl transition-all duration-300">
+      <Card class="p-8 border-2 border-green-100 hover:border-green-300 transition-colors duration-300">
         <div class="flex items-start space-x-6">
           <div class="flex-shrink-0">
-            <div class="w-16 h-16 bg-gradient-to-br from-green-500 to-green-700 text-white rounded-2xl flex items-center justify-center font-bold text-xl shadow-lg">
+            <div class="w-14 h-14 bg-green-100 text-green-700 rounded-xl flex items-center justify-center font-bold text-lg">
               JHS
             </div>
           </div>
           <div class="flex-1">
-            <h3 class="text-2xl font-semibold mb-3 font-serif text-gray-900">Junior High School</h3>
+            <h3 class="text-2xl font-semibold mb-3 text-gray-800">Junior High School</h3>
             <p class="text-gray-600 mb-4 leading-relaxed">
               Grades 7 to 10 following the K-12 curriculum with emphasis on core subjects and values education.
             </p>
-            <ul class="space-y-3 text-gray-600">
+            <ul class="space-y-2 text-gray-600">
               <li class="flex items-start">
-                <svg class="w-5 h-5 text-green-600 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                <svg class="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                 </svg>
                 Strong foundation in Mathematics, Science, English, and Filipino
               </li>
               <li class="flex items-start">
-                <svg class="w-5 h-5 text-green-600 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                <svg class="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                 </svg>
                 Values Education and Christian Living
               </li>
               <li class="flex items-start">
-                <svg class="w-5 h-5 text-green-600 mr-3 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                <svg class="w-5 h-5 text-green-500 mr-2 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>
                 </svg>
                 Co-curricular activities and student organizations
               </li>
             </ul>
-            <div class="mt-6">
-              <a href="/enroll" class="inline-flex items-center text-green-600 hover:text-green-700 font-medium group-hover:gap-3 gap-2 transition-all">
-                Apply Now
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-              </a>
-            </div>
           </div>
         </div>
       </Card>
       
-      <Card shadow="xl" class="overflow-hidden group hover:shadow-2xl transition-all duration-300">
+      <Card class="p-8 border-2 border-gold-100 hover:border-gold-300 transition-colors duration-300">
         <div class="flex items-start space-x-6">
           <div class="flex-shrink-0">
-            <div class="w-16 h-16 bg-gradient-to-br from-gold-500 to-gold-600 text-white rounded-2xl flex items-center justify-center font-bold text-xl shadow-lg">
+            <div class="w-14 h-14 bg-gold-100 text-gold-700 rounded-xl flex items-center justify-center font-bold text-lg">
               SHS
             </div>
           </div>
           <div class="flex-1">
-            <h3 class="text-2xl font-semibold mb-3 font-serif text-gray-900">Senior High School</h3>
+            <h3 class="text-2xl font-semibold mb-3 text-gray-800">Senior High School</h3>
             <p class="text-gray-600 mb-4 leading-relaxed">
               Grades 11 and 12 with specialized academic tracks preparing students for college and careers.
             </p>
-            <div class="space-y-3">
-              <h4 class="font-semibold text-gray-800">Available Strands:</h4>
-              <ul class="space-y-2 text-gray-600">
+            <div class="space-y-2">
+              <h4 class="font-semibold text-gray-700">Available Strands:</h4>
+              <ul class="space-y-1 text-gray-600">
                 <li class="flex items-center">
-                  <span class="w-2 h-2 bg-green-600 rounded-full mr-3 flex-shrink-0"></span>
+                  <span class="w-2 h-2 bg-green-500 rounded-full mr-2 flex-shrink-0"></span>
                   <span class="font-medium">STEM</span> - Science, Technology, Engineering & Mathematics
                 </li>
                 <li class="flex items-center">
-                  <span class="w-2 h-2 bg-green-600 rounded-full mr-3 flex-shrink-0"></span>
+                  <span class="w-2 h-2 bg-green-500 rounded-full mr-2 flex-shrink-0"></span>
                   <span class="font-medium">HUMSS</span> - Humanities and Social Sciences
                 </li>
                 <li class="flex items-center">
-                  <span class="w-2 h-2 bg-green-600 rounded-full mr-3 flex-shrink-0"></span>
+                  <span class="w-2 h-2 bg-green-500 rounded-full mr-2 flex-shrink-0"></span>
                   <span class="font-medium">ABM</span> - Accountancy, Business and Management
                 </li>
               </ul>
-            </div>
-            <div class="mt-6">
-              <a href="/enroll" class="inline-flex items-center text-green-600 hover:text-green-700 font-medium group-hover:gap-3 gap-2 transition-all">
-                Apply Now
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                </svg>
-              </a>
             </div>
           </div>
         </div>
@@ -360,10 +314,10 @@
 </section>
 
 <!-- Testimonials Section -->
-<section class="py-20 md:py-28 bg-gradient-to-br from-green-50 to-green-100">
+<section class="py-20 bg-green-50">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="text-center mb-16">
-      <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4 font-serif">
+    <div class="text-center mb-12">
+      <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4 font-serif">
         What Our Community Says
       </h2>
       <p class="text-lg text-gray-600">
@@ -372,30 +326,30 @@
     </div>
     
     <div class="relative">
-      <Card shadow="xl" padding="xl" class="max-w-4xl mx-auto">
+      <Card class="bg-white p-10 max-w-4xl mx-auto shadow-xl">
         <div class="relative">
           <!-- Quote Icon -->
-          <svg class="absolute -top-4 -left-4 w-16 h-16 text-green-200 opacity-50" fill="currentColor" viewBox="0 0 24 24">
+          <svg class="absolute -top-6 -left-6 w-12 h-12 text-green-200" fill="currentColor" viewBox="0 0 24 24">
             <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z"/>
           </svg>
           
           <!-- Testimonial Content -->
           <div class="text-center">
-            <p class="text-xl md:text-2xl text-gray-700 italic leading-relaxed mb-8">
+            <p class="text-lg md:text-xl text-gray-700 italic leading-relaxed mb-6">
               "{testimonials[currentTestimonial].content}"
             </p>
             
             <div class="flex items-center justify-center">
-              <div class="w-16 h-16 bg-gray-300 rounded-full mr-4"></div>
+              <div class="w-14 h-14 bg-gray-200 rounded-full mr-4"></div>
               <div class="text-left">
-                <h4 class="font-semibold text-gray-900">{testimonials[currentTestimonial].name}</h4>
-                <p class="text-gray-600">{testimonials[currentTestimonial].role}</p>
+                <h4 class="font-semibold text-gray-800">{testimonials[currentTestimonial].name}</h4>
+                <p class="text-gray-600 text-sm">{testimonials[currentTestimonial].role}</p>
               </div>
             </div>
           </div>
           
           <!-- Dots Indicator -->
-          <div class="flex justify-center mt-8 space-x-2">
+          <div class="flex justify-center mt-6 space-x-2">
             {#each testimonials as _, i}
               <button
                 onclick={() => currentTestimonial = i}
@@ -415,10 +369,10 @@
 </section>
 
 <!-- Latest News Section -->
-<section class="py-20 md:py-28 bg-white">
+<section class="py-20 bg-white">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-    <div class="text-center mb-16">
-      <h2 class="text-3xl md:text-4xl font-bold text-gray-900 mb-4 font-serif">
+    <div class="text-center mb-12">
+      <h2 class="text-3xl md:text-4xl font-bold text-gray-800 mb-4 font-serif">
         Latest News & Updates
       </h2>
       <p class="text-lg text-gray-600">
@@ -433,52 +387,46 @@
     {:else if latestNews.length > 0}
       <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
         {#each latestNews as post, i}
-          <div class="animate-fade-in-up" style="animation-delay: {i * 100}ms">
-            <Card hover shadow="lg" class="h-full flex flex-col group">
-              {#if post.imageUrl}
-                <div class="relative h-48 -mt-6 -mx-6 mb-6 overflow-hidden rounded-t-lg">
-                  <img 
-                    src={post.imageUrl} 
-                    alt={post.title}
-                    class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                  />
-                  <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
-                </div>
-              {:else}
-                <div class="relative h-48 -mt-6 -mx-6 mb-6 bg-gradient-to-br from-green-100 to-green-200 rounded-t-lg flex items-center justify-center">
-                  <svg class="w-16 h-16 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-                  </svg>
-                </div>
-              {/if}
-              
-              <div class="flex-grow flex flex-col">
-                <h3 class="text-xl font-semibold mb-3 line-clamp-2 group-hover:text-green-700 transition-colors">
-                  <a href="/news/{post.id}" class="hover:text-green-700">
-                    {post.title}
-                  </a>
-                </h3>
-                <p class="text-gray-600 mb-4 line-clamp-3 flex-grow">
-                  {post.excerpt}
-                </p>
-                <div class="flex justify-between items-center text-sm text-gray-500 mt-auto">
-                  <span>{new Date(post.publishedAt).toLocaleDateString('en-PH')}</span>
-                  <a href="/news/{post.id}" class="text-green-700 hover:text-green-800 font-medium inline-flex items-center group-hover:gap-3 gap-2 transition-all">
-                    Read more
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </a>
-                </div>
+          <Card class="overflow-hidden hover:shadow-lg transition-shadow duration-300">
+            {#if post.imageUrl}
+              <div class="h-48 overflow-hidden">
+                <img 
+                  src={post.imageUrl} 
+                  alt={post.title}
+                  class="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+                />
               </div>
-            </Card>
-          </div>
+            {:else}
+              <div class="h-48 bg-gradient-to-br from-green-50 to-green-100 flex items-center justify-center">
+                <svg class="w-12 h-12 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
+                </svg>
+              </div>
+            {/if}
+            
+            <div class="p-6">
+              <h3 class="text-lg font-semibold mb-2 text-gray-800 line-clamp-2">
+                <a href="/news/{post.id}" class="hover:text-green-600 transition-colors">
+                  {post.title}
+                </a>
+              </h3>
+              <p class="text-gray-600 text-sm mb-4 line-clamp-3">
+                {post.excerpt}
+              </p>
+              <div class="flex justify-between items-center text-sm">
+                <span class="text-gray-500">{new Date(post.publishedAt).toLocaleDateString('en-PH')}</span>
+                <a href="/news/{post.id}" class="text-green-600 hover:text-green-700 font-medium">
+                  Read more →
+                </a>
+              </div>
+            </div>
+          </Card>
         {/each}
       </div>
       
-      <div class="text-center mt-12">
+      <div class="text-center mt-10">
         <a href="/news">
-          <Button variant="outline" size="lg">
+          <Button variant="outline" class="border-green-600 text-green-700 hover:bg-green-50">
             View All News
           </Button>
         </a>
@@ -493,8 +441,8 @@
 
 <!-- CTA Section -->
 {#if $enrollmentSettings.isOpen}
-  <section class="py-20 bg-gradient-to-r from-green-700 to-green-800 relative overflow-hidden">
-    <!-- Background Pattern -->
+  <section class="py-20 bg-gradient-to-r from-green-600 to-green-700 relative overflow-hidden">
+    <!-- Subtle Pattern -->
     <div class="absolute inset-0 opacity-10">
       <div class="absolute inset-0 bg-[url('/shamrock-pattern.svg')] bg-repeat"></div>
     </div>
@@ -503,13 +451,17 @@
       <h2 class="text-3xl md:text-4xl font-bold text-white mb-6 font-serif">
         Begin Your Journey With Us
       </h2>
-      <p class="text-xl mb-8 text-green-100 max-w-2xl mx-auto">
+      <p class="text-xl mb-8 text-green-50 max-w-2xl mx-auto">
         Join our community of learners for School Year {$enrollmentSettings.schoolYear}
       </p>
       
       <div class="inline-flex flex-col sm:flex-row gap-4">
         <a href="/enroll">
-          <Button variant="secondary" size="xl" shadow rounded="full">
+          <Button 
+            size="lg" 
+            class="bg-white text-green-700 hover:bg-green-50 shadow-lg"
+            rounded="full"
+          >
             <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
@@ -518,14 +470,19 @@
         </a>
         
         <a href="/about">
-          <Button variant="outline" size="xl" class="!text-white !border-white hover:!bg-white/20" rounded="full">
+          <Button 
+            size="lg" 
+            variant="outline" 
+            class="border-white text-white hover:bg-white/10" 
+            rounded="full"
+          >
             Learn More About SPA
           </Button>
         </a>
       </div>
       
       {#if !isAuthenticated}
-        <p class="text-sm text-green-200 mt-6">
+        <p class="text-sm text-green-100 mt-6">
           Sign in required to submit application
         </p>
       {/if}
@@ -534,21 +491,10 @@
 {/if}
 
 <style>
-  @keyframes float {
-    0%, 100% { transform: translateY(0px) rotate(0deg); }
-    50% { transform: translateY(-20px) rotate(10deg); }
-  }
-  
-  @keyframes float-slow {
-    0%, 100% { transform: translate(0, 0); }
-    33% { transform: translate(30px, -30px); }
-    66% { transform: translate(-20px, 20px); }
-  }
-  
   @keyframes fade-in-up {
     from {
       opacity: 0;
-      transform: translateY(30px);
+      transform: translateY(20px);
     }
     to {
       opacity: 1;
@@ -556,28 +502,8 @@
     }
   }
   
-  .animate-float {
-    animation: float 3s ease-in-out infinite;
-  }
-  
-  .animate-float-slow {
-    animation: float-slow 20s ease-in-out infinite;
-  }
-  
   .animate-fade-in-up {
-    animation: fade-in-up 0.8s ease-out forwards;
-  }
-  
-  .animation-delay-200 {
-    animation-delay: 200ms;
-  }
-  
-  .animation-delay-400 {
-    animation-delay: 400ms;
-  }
-  
-  .animation-delay-600 {
-    animation-delay: 600ms;
+    animation: fade-in-up 0.6s ease-out forwards;
   }
   
   .line-clamp-2 {

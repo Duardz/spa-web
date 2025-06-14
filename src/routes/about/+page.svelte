@@ -5,15 +5,15 @@
 
 <svelte:head>
   <title>About Us - Saint Patrick's Academy</title>
-  <meta name="description" content="Learn about Saint Patrick's Academy's mission, vision, history, and commitment to quality Catholic education in San Francisco, Agusan del Sur.">
+  <meta name="description" content="Learn about Saint Patrick's Academy's mission, vision, history, and commitment to quality Catholic education in Paltic, Dingalan, Aurora.">
 </svelte:head>
 
 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
   <!-- Page Header -->
-  <div class="text-center mb-12">
-    <h1 class="text-4xl md:text-5xl font-bold text-gray-900 mb-4">About Saint Patrick's Academy</h1>
+  <div class="text-center mb-16 py-8 bg-gradient-to-br from-green-50 to-white rounded-2xl">
+    <h1 class="text-4xl md:text-5xl font-bold text-gray-800 mb-4 font-serif">About Saint Patrick's Academy</h1>
     <p class="text-xl text-gray-600 max-w-3xl mx-auto">
-      A tradition of excellence in Catholic education since our founding
+      A tradition of excellence in Catholic education serving the community of Paltic, Dingalan, Aurora
     </p>
   </div>
 
@@ -96,8 +96,8 @@
     <Card>
       <div class="prose prose-lg max-w-none">
         <p class="text-gray-700 leading-relaxed mb-4">
-          Saint Patrick's Academy has been a cornerstone of education in San Francisco, 
-          Agusan del Sur for generations. Founded on the principles of Catholic education, 
+          Saint Patrick's Academy has been a cornerstone of education in Paltic, 
+          Dingalan, Aurora for generations. Founded on the principles of Catholic education, 
           our institution has grown from humble beginnings to become one of the most 
           respected schools in the region.
         </p>
@@ -150,7 +150,7 @@
   </div>
 
   <!-- Contact Information -->
-  <Card class="bg-green-50 border-green-200">
+  <Card class="bg-green-50 border-green-200" id="contact">
     <h2 class="text-3xl font-bold text-center mb-8">Contact Us</h2>
     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
       <div>
@@ -162,7 +162,7 @@
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
             Saint Patrick's Academy<br />
-            San Francisco, Agusan del Sur<br />
+            Paltic, Dingalan, Aurora<br />
             Philippines
           </p>
         </address>
@@ -175,7 +175,7 @@
             <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
             </svg>
-            (085) XXX-XXXX
+            (042) XXX-XXXX
           </p>
           <p class="flex items-center">
             <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -195,7 +195,7 @@
     
     <div class="mt-8 text-center">
       <a href="/enroll">
-        <Button variant="primary" size="lg">
+        <Button variant="primary" size="lg" class="bg-green-600 hover:bg-green-700">
           Start Your Journey With Us
         </Button>
       </a>

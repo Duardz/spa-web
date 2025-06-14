@@ -207,7 +207,7 @@
         {min}
         {max}
         {step}
-        autocomplete={autocomplete || undefined}
+        autocomplete={autocomplete as any || undefined}
         class={inputClasses}
         aria-invalid={!!error && touched}
         aria-describedby={error ? `${id}-error` : helper ? `${id}-helper` : undefined}

@@ -57,35 +57,86 @@ export const enrollmentOps = {
 
   // Get enrollments by user
   async getByUser(userId: string): Promise<Enrollment[]> {
-    const q = query(
-      collection(db, 'enrollments'),
-      where('userId', '==', userId),
-      orderBy('submittedAt', 'desc')
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      ...doc.data(),
-      id: doc.id,
-      submittedAt: convertTimestamp(doc.data().submittedAt),
-      updatedAt: convertTimestamp(doc.data().updatedAt)
-    })) as Enrollment[];
+    try {
+      const q = query(
+        collection(db, 'enrollments'),
+        where('userId', '==', userId),
+        orderBy('submittedAt', 'desc')
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id,
+        submittedAt: convertTimestamp(doc.data().submittedAt),
+        updatedAt: convertTimestamp(doc.data().updatedAt)
+      })) as Enrollment[];
+    } catch (error: any) {
+      console.error('Error fetching user enrollments:', error);
+      // If index is missing, try without ordering
+      if (error.code === 'failed-precondition') {
+        console.log('Retrying without ordering...');
+        const q = query(
+          collection(db, 'enrollments'),
+          where('userId', '==', userId)
+        );
+        const snapshot = await getDocs(q);
+        const enrollments = snapshot.docs.map(doc => ({
+          ...doc.data(),
+          id: doc.id,
+          submittedAt: convertTimestamp(doc.data().submittedAt),
+          updatedAt: convertTimestamp(doc.data().updatedAt)
+        })) as Enrollment[];
+        
+        // Sort manually
+        return enrollments.sort((a, b) => 
+          new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+        );
+      }
+      throw error;
+    }
   },
 
   // Get enrollments by status
   async getByStatus(status: EnrollmentStatus, limitCount = 20): Promise<Enrollment[]> {
-    const q = query(
-      collection(db, 'enrollments'),
-      where('status', '==', status),
-      orderBy('submittedAt', 'desc'),
-      limit(limitCount)
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      ...doc.data(),
-      id: doc.id,
-      submittedAt: convertTimestamp(doc.data().submittedAt),
-      updatedAt: convertTimestamp(doc.data().updatedAt)
-    })) as Enrollment[];
+    try {
+      const q = query(
+        collection(db, 'enrollments'),
+        where('status', '==', status),
+        orderBy('submittedAt', 'desc'),
+        limit(limitCount)
+      );
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id,
+        submittedAt: convertTimestamp(doc.data().submittedAt),
+        updatedAt: convertTimestamp(doc.data().updatedAt)
+      })) as Enrollment[];
+    } catch (error: any) {
+      console.error('Error fetching enrollments by status:', error);
+      // If index is missing, try without ordering
+      if (error.code === 'failed-precondition') {
+        console.log('Retrying without ordering...');
+        const q = query(
+          collection(db, 'enrollments'),
+          where('status', '==', status),
+          limit(limitCount)
+        );
+        const snapshot = await getDocs(q);
+        const enrollments = snapshot.docs.map(doc => ({
+          ...doc.data(),
+          id: doc.id,
+          submittedAt: convertTimestamp(doc.data().submittedAt),
+          updatedAt: convertTimestamp(doc.data().updatedAt)
+        })) as Enrollment[];
+        
+        // Sort manually
+        return enrollments.sort((a, b) => 
+          new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+        ).slice(0, limitCount);
+      }
+      throw error;
+    }
   },
 
   // Update enrollment status

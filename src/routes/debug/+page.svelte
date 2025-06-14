@@ -25,16 +25,19 @@
       const newsSnapshot = await getDocs(collection(db, 'news'));
       debugInfo.newsCount = newsSnapshot.size;
       
-      // Test published news
-      const publishedQuery = query(
-        collection(db, 'news'),
-        where('isPublished', '==', true),
-        limit(10)
-      );
-      const publishedSnapshot = await getDocs(publishedQuery);
-      debugInfo.publishedNewsCount = publishedSnapshot.size;
+      // Don't use compound query until index is created
+      // Just count manually for now
+      let publishedCount = 0;
+      newsSnapshot.forEach(doc => {
+        if (doc.data().isPublished === true) {
+          publishedCount++;
+        }
+      });
+      debugInfo.publishedNewsCount = publishedCount;
       
-      console.log('Sample news doc:', publishedSnapshot.docs[0]?.data());
+      if (newsSnapshot.docs[0]) {
+        console.log('Sample news doc:', newsSnapshot.docs[0].data());
+      }
     } catch (error) {
       debugInfo.errors.push(`News error: ${error}`);
     }

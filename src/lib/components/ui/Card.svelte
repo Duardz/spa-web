@@ -52,15 +52,15 @@
   
   const baseClasses = `
     relative overflow-hidden
-    ${glass ? 'backdrop-blur-md bg-white/80' : 'bg-white'}
-    ${border ? 'border border-gray-200' : ''}
-    ${gradient ? 'bg-gradient-to-br from-white to-gray-50' : ''}
+    ${glass ? 'backdrop-blur-md bg-white/90' : 'bg-white'}
+    ${border ? 'border border-gray-100' : ''}
+    ${gradient ? 'bg-gradient-to-br from-white via-gray-50/50 to-white' : ''}
   `;
   
   const hoverClasses = hover ? `
     transition-all duration-300 ease-in-out
-    hover:shadow-xl hover:-translate-y-1
-    hover:border-green-200
+    hover:shadow-lg hover:-translate-y-0.5
+    hover:border-green-100
   ` : '';
   
   const classes = $derived(`

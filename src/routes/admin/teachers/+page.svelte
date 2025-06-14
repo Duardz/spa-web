@@ -6,6 +6,7 @@
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import { teacherOps } from '$lib/firebase/firestore';
   import type { Teacher } from '$lib/types';
+	import { error } from '@sveltejs/kit';
   
   let teachers = $state<Teacher[]>([]);
   let loading = $state(true);
@@ -14,7 +15,8 @@
   async function loadTeachers() {
     try {
       loading = true;
-      teachers = await teacherOps.getAll();
+      const fetchedTeachers = await teacherOps.getAll();
+      teachers = fetchedTeachers;
     } catch (error) {
       console.error('Error loading teachers:', error);
     } finally {
@@ -54,8 +56,18 @@
     return grouped;
   });
   
-  onMount(() => {
-    loadTeachers();
+  onMount(async () => {
+    try {
+      console.log('Fetching teachers...');
+      const fetchedTeachers = await teacherOps.getAll();
+      console.log('[snapshot] Fetched teachers:', $state.snapshot(fetchedTeachers));
+      teachers = fetchedTeachers;
+    } catch (err) {
+      console.error('Error loading teachers:', err);
+      err = 'Failed to load teachers. Please try again later.';
+    } finally {
+      loading = false;
+    }
   });
 </script>
 

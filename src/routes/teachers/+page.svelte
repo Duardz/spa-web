@@ -30,7 +30,7 @@
     try {
       console.log('Fetching teachers...');
       teachers = await teacherOps.getAll();
-      console.log('Fetched teachers:', teachers);
+      console.log('[snapshot] Fetched teachers:', $state.snapshot(teachers));
     } catch (err) {
       console.error('Error loading teachers:', err);
       error = 'Failed to load teachers. Please try again later.';

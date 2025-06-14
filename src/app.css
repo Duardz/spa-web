@@ -28,8 +28,7 @@
   --color-cream-dark: #f9f6f0;
 }
 
-/* Custom Font Import */
-@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=Inter:wght@300;400;500;600;700&display=swap');
+/* Custom Font Import - moved to app.html to avoid @import issues */
 
 /* Typography */
 .font-serif {

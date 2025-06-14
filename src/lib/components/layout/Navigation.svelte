@@ -34,10 +34,10 @@
       class={`
         ${mobile ? 'block px-3 py-2 rounded-md text-base font-medium' : 'px-3 py-2 rounded-md text-sm font-medium'}
         ${isActive(item.href) 
-          ? 'text-green-700 bg-green-50' 
-          : 'text-gray-700 hover:text-green-700 hover:bg-green-50'
+          ? 'text-green-700 bg-green-50 border-b-2 border-green-600' 
+          : 'text-gray-600 hover:text-green-700 hover:bg-green-50 border-b-2 border-transparent'
         }
-        transition-colors duration-200
+        transition-all duration-200
       `}
       onclick={handleClick}
     >
@@ -51,10 +51,10 @@
       class={`
         ${mobile ? 'block px-3 py-2 rounded-md text-base font-medium' : 'px-3 py-2 rounded-md text-sm font-medium'}
         ${isActive('/admin') 
-          ? 'text-green-700 bg-green-50' 
-          : 'text-gray-700 hover:text-green-700 hover:bg-green-50'
+          ? 'text-green-700 bg-green-50 border-b-2 border-green-600' 
+          : 'text-gray-600 hover:text-green-700 hover:bg-green-50 border-b-2 border-transparent'
         }
-        transition-colors duration-200
+        transition-all duration-200
       `}
       onclick={handleClick}
     >
