@@ -15,10 +15,12 @@ import {
   type QueryConstraint,
   type DocumentData,
   serverTimestamp,
-  Timestamp
+  Timestamp,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from './config';
 import type { Enrollment, Teacher, NewsPost, EnrollmentStatus } from '$lib/types';
+import { sanitizeForFirestore } from '$lib/utils/security';
 
 // Helper to convert Firestore timestamps to Date
 const convertTimestamp = (timestamp: any): Date => {
@@ -28,12 +30,22 @@ const convertTimestamp = (timestamp: any): Date => {
   return new Date(timestamp);
 };
 
-// Enrollment operations
+// Enhanced Enrollment operations
 export const enrollmentOps = {
   // Create new enrollment
   async create(enrollment: Omit<Enrollment, 'id'>): Promise<string> {
+    // Sanitize inputs for security
+    const sanitizedData = Object.entries(enrollment).reduce((acc, [key, value]) => {
+      if (typeof value === 'string') {
+        acc[key] = sanitizeForFirestore(value);
+      } else {
+        acc[key] = value;
+      }
+      return acc;
+    }, {} as any);
+
     const docRef = await addDoc(collection(db, 'enrollments'), {
-      ...enrollment,
+      ...sanitizedData,
       submittedAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -53,6 +65,77 @@ export const enrollmentOps = {
       } as Enrollment;
     }
     return null;
+  },
+
+  // Get all enrollments with filters
+  async getAll(filters?: {
+    status?: EnrollmentStatus;
+    type?: 'junior' | 'senior';
+    schoolYear?: string;
+    limitCount?: number;
+  }): Promise<Enrollment[]> {
+    try {
+      let constraints: QueryConstraint[] = [];
+      
+      if (filters?.status) {
+        constraints.push(where('status', '==', filters.status));
+      }
+      if (filters?.type) {
+        constraints.push(where('type', '==', filters.type));
+      }
+      if (filters?.schoolYear) {
+        constraints.push(where('schoolYear', '==', filters.schoolYear));
+      }
+      
+      constraints.push(orderBy('submittedAt', 'desc'));
+      
+      if (filters?.limitCount) {
+        constraints.push(limit(filters.limitCount));
+      }
+      
+      const q = query(collection(db, 'enrollments'), ...constraints);
+      const snapshot = await getDocs(q);
+      
+      return snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id,
+        submittedAt: convertTimestamp(doc.data().submittedAt),
+        updatedAt: convertTimestamp(doc.data().updatedAt)
+      })) as Enrollment[];
+    } catch (error) {
+      console.error('Error fetching enrollments:', error);
+      // Fallback without ordering if index is missing
+      const snapshot = await getDocs(collection(db, 'enrollments'));
+      const enrollments = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id,
+        submittedAt: convertTimestamp(doc.data().submittedAt),
+        updatedAt: convertTimestamp(doc.data().updatedAt)
+      })) as Enrollment[];
+      
+      // Apply filters manually
+      let filtered = enrollments;
+      if (filters?.status) {
+        filtered = filtered.filter(e => e.status === filters.status);
+      }
+      if (filters?.type) {
+        filtered = filtered.filter(e => e.type === filters.type);
+      }
+      if (filters?.schoolYear) {
+        filtered = filtered.filter(e => e.schoolYear === filters.schoolYear);
+      }
+      
+      // Sort manually
+      filtered.sort((a, b) => 
+        new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+      );
+      
+      if (filters?.limitCount) {
+        filtered = filtered.slice(0, filters.limitCount);
+      }
+      
+      return filtered;
+    }
   },
 
   // Get enrollments by user
@@ -139,6 +222,24 @@ export const enrollmentOps = {
     }
   },
 
+  // Update enrollment (generic update method)
+  async update(id: string, data: Partial<Enrollment>): Promise<void> {
+    // Sanitize string inputs
+    const sanitizedData = Object.entries(data).reduce((acc, [key, value]) => {
+      if (typeof value === 'string') {
+        acc[key] = sanitizeForFirestore(value);
+      } else {
+        acc[key] = value;
+      }
+      return acc;
+    }, {} as any);
+    
+    await updateDoc(doc(db, 'enrollments', id), {
+      ...sanitizedData,
+      updatedAt: serverTimestamp()
+    });
+  },
+
   // Update enrollment status
   async updateStatus(id: string, status: EnrollmentStatus): Promise<void> {
     await updateDoc(doc(db, 'enrollments', id), {
@@ -147,27 +248,130 @@ export const enrollmentOps = {
     });
   },
 
+  // Delete enrollment
+  async delete(id: string): Promise<void> {
+    await deleteDoc(doc(db, 'enrollments', id));
+  },
+
+  // Batch delete enrollments
+  async batchDelete(ids: string[]): Promise<void> {
+    const batch = writeBatch(db);
+    ids.forEach(id => {
+      batch.delete(doc(db, 'enrollments', id));
+    });
+    await batch.commit();
+  },
+
+  // Archive enrollments (move to archived collection)
+  async archive(ids: string[]): Promise<void> {
+    const batch = writeBatch(db);
+    
+    for (const id of ids) {
+      const enrollment = await this.getById(id);
+      if (enrollment) {
+        // Add to archived collection
+        const archivedRef = doc(collection(db, 'archived_enrollments'));
+        batch.set(archivedRef, {
+          ...enrollment,
+          archivedAt: serverTimestamp(),
+          originalId: id
+        });
+        
+        // Delete from active collection
+        batch.delete(doc(db, 'enrollments', id));
+      }
+    }
+    
+    await batch.commit();
+  },
+
   // Get enrollment stats
-  async getStats(): Promise<Record<string, number>> {
-    const snapshot = await getDocs(collection(db, 'enrollments'));
-    const stats: Record<string, number> = {
-      total: 0,
+  async getStats(schoolYear?: string): Promise<{
+    total: number;
+    submitted: number;
+    verified: number;
+    printed: number;
+    rejected: number;
+    archived: number;
+    junior: number;
+    senior: number;
+    todayCount: number;
+    weekCount: number;
+  }> {
+    const enrollments = await this.getAll({ schoolYear });
+    
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    
+    const stats = {
+      total: enrollments.length,
       submitted: 0,
       verified: 0,
       printed: 0,
+      rejected: 0,
       archived: 0,
       junior: 0,
-      senior: 0
+      senior: 0,
+      todayCount: 0,
+      weekCount: 0
     };
 
-    snapshot.docs.forEach(doc => {
-      const data = doc.data();
-      stats.total++;
-      stats[data.status]++;
-      stats[data.type]++;
+    enrollments.forEach(enrollment => {
+      // Status counts
+      stats[enrollment.status]++;
+      
+      // Type counts
+      stats[enrollment.type]++;
+      
+      // Time-based counts
+      const submittedDate = new Date(enrollment.submittedAt);
+      if (submittedDate >= todayStart) {
+        stats.todayCount++;
+      }
+      if (submittedDate >= weekAgo) {
+        stats.weekCount++;
+      }
     });
 
     return stats;
+  },
+
+  // Get recent activity
+  async getRecentActivity(days = 7): Promise<{
+    date: string;
+    count: number;
+    verified: number;
+    rejected: number;
+  }[]> {
+    const enrollments = await this.getAll();
+    const now = new Date();
+    const activity: Record<string, { count: number; verified: number; rejected: number }> = {};
+    
+    // Initialize days
+    for (let i = 0; i < days; i++) {
+      const date = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dateStr = date.toISOString().split('T')[0];
+      activity[dateStr] = { count: 0, verified: 0, rejected: 0 };
+    }
+    
+    // Count enrollments by date
+    enrollments.forEach(enrollment => {
+      const dateStr = new Date(enrollment.submittedAt).toISOString().split('T')[0];
+      if (activity[dateStr]) {
+        activity[dateStr].count++;
+        if (enrollment.status === 'verified') {
+          activity[dateStr].verified++;
+        } else if (enrollment.status === 'rejected') {
+          activity[dateStr].rejected++;
+        }
+      }
+    });
+    
+    // Convert to array and sort
+    return Object.entries(activity)
+      .map(([date, data]) => ({ date, ...data }))
+      .sort((a, b) => a.date.localeCompare(b.date));
   }
 };
 

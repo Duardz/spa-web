@@ -8,8 +8,8 @@ export interface User {
   role: 'student' | 'admin';
 }
 
-// Enrollment types
-export type EnrollmentStatus = 'submitted' | 'verified' | 'printed' | 'archived';
+// Enrollment types - Added 'rejected' status
+export type EnrollmentStatus = 'submitted' | 'verified' | 'printed' | 'rejected' | 'archived';
 export type GradeLevel = '7' | '8' | '9' | '10' | '11' | '12';
 export type Strand = 'STEM' | 'HUMSS' | 'ABM';
 export type Semester = '1st' | '2nd';
@@ -42,6 +42,10 @@ interface BaseEnrollment {
   guardianName: string;
   guardianRelation: string;
   contactNumber: string;
+  
+  // Admin notes (for rejection reasons, etc.)
+  adminNotes?: string;
+  rejectionReason?: string;
   
   // Signatures (base64 or URL)
   studentSignature?: string;
@@ -128,8 +132,11 @@ export interface DashboardStats {
   totalEnrollments: number;
   pendingVerification: number;
   verifiedToday: number;
+  rejectedCount: number;
   juniorHighCount: number;
   seniorHighCount: number;
+  todayApplications: number;
+  weekApplications: number;
 }
 
 // Form validation errors
