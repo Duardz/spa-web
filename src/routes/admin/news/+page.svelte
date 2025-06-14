@@ -112,8 +112,9 @@
   <Card class="p-3 sm:p-4">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div class="flex items-center gap-3">
-        <label class="text-xs sm:text-sm text-gray-700">Filter:</label>
+        <label for="filterSelect" class="text-xs sm:text-sm text-gray-700">Filter:</label>
         <select 
+          id="filterSelect"
           bind:value={filter}
           class="text-xs sm:text-sm px-2.5 py-1.5 border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500"
         >
@@ -132,6 +133,8 @@
               ? 'bg-white text-gray-900 shadow-sm' 
               : 'text-gray-600 hover:text-gray-900'
           }`}
+          aria-label="Grid view"
+          aria-pressed={viewMode === 'grid'}
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
@@ -144,6 +147,8 @@
               ? 'bg-white text-gray-900 shadow-sm' 
               : 'text-gray-600 hover:text-gray-900'
           }`}
+          aria-label="List view"
+          aria-pressed={viewMode === 'list'}
         >
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
@@ -209,6 +214,7 @@
                   ? 'bg-green-100 text-green-800 hover:bg-green-200' 
                   : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
               }`}
+              aria-label={`Toggle publish status for ${post.title}`}
             >
               {post.isPublished ? 'Published' : 'Draft'}
             </button>
@@ -218,6 +224,7 @@
                 href="/news/{post.id}"
                 target="_blank"
                 class="p-1.5 text-blue-600 hover:text-blue-900 hover:bg-blue-50 rounded"
+                aria-label={`View ${post.title}`}
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -227,6 +234,7 @@
               <a 
                 href="/admin/news/{post.id}"
                 class="p-1.5 text-green-600 hover:text-green-900 hover:bg-green-50 rounded"
+                aria-label={`Edit ${post.title}`}
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -236,6 +244,7 @@
                 onclick={() => deletePost(post.id!)}
                 disabled={deleting === post.id}
                 class="p-1.5 text-red-600 hover:text-red-900 hover:bg-red-50 rounded disabled:opacity-50"
+                aria-label={`Delete ${post.title}`}
               >
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -278,6 +287,7 @@
                         ? 'bg-green-100 text-green-800 hover:bg-green-200' 
                         : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                     }`}
+                    aria-label={`Toggle publish status for ${post.title}`}
                   >
                     {post.isPublished ? 'Published' : 'Draft'}
                   </button>
@@ -382,6 +392,7 @@
                             ? 'bg-green-100 text-green-800 hover:bg-green-200' 
                             : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
                         }`}
+                        aria-label={`Toggle publish status for ${post.title}`}
                       >
                         {post.isPublished ? 'Published' : 'Draft'}
                       </button>
@@ -426,6 +437,7 @@
   .line-clamp-1 {
     display: -webkit-box;
     -webkit-line-clamp: 1;
+    line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
@@ -433,6 +445,7 @@
   .line-clamp-2 {
     display: -webkit-box;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
@@ -440,6 +453,7 @@
   .line-clamp-3 {
     display: -webkit-box;
     -webkit-line-clamp: 3;
+    line-clamp: 3;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }

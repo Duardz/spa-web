@@ -263,13 +263,6 @@
 {/if}
 
 <style>
-  /* Ensure smooth scrolling on mobile */
-  @media (max-width: 1024px) {
-    body {
-      -webkit-overflow-scrolling: touch;
-    }
-  }
-  
   /* Improve tap targets on mobile */
   @media (max-width: 640px) {
     button {

@@ -225,7 +225,10 @@
   <Card class="p-3 sm:p-4">
     <button 
       onclick={() => showFilters = !showFilters}
+      onkeydown={(e) => e.key === 'Enter' && (showFilters = !showFilters)}
       class="w-full sm:hidden flex items-center justify-between py-1"
+      aria-label="Toggle filters"
+      aria-expanded={showFilters}
     >
       <span class="text-sm font-medium text-gray-700">
         <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -241,8 +244,9 @@
     <div class={`${showFilters ? 'block mt-3' : 'hidden'} sm:block space-y-3 sm:space-y-0`}>
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div class="sm:col-span-2 lg:col-span-1">
-          <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Search</label>
+          <label for="searchInput" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Search</label>
           <input
+            id="searchInput"
             type="text"
             bind:value={searchTerm}
             placeholder="Name, LRN, or email..."
@@ -251,8 +255,9 @@
         </div>
         
         <div>
-          <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Status</label>
+          <label for="statusFilter" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Status</label>
           <select 
+            id="statusFilter"
             bind:value={statusFilter}
             class="block w-full px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500"
           >
@@ -266,8 +271,9 @@
         </div>
         
         <div>
-          <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Type</label>
+          <label for="typeFilter" class="block text-xs sm:text-sm font-medium text-gray-700 mb-1">Type</label>
           <select 
+            id="typeFilter"
             bind:value={typeFilter}
             class="block w-full px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-md shadow-sm focus:ring-green-500 focus:border-green-500"
           >
@@ -336,6 +342,7 @@
               size="xs"
               onclick={() => viewEnrollmentDetails(enrollment.id!)}
               fullWidth
+              aria-label={`View details for ${enrollment.fullName}`}
             >
               <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -388,9 +395,13 @@
         <div 
           class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
           onclick={() => selectedEnrollment = null}
+          onkeydown={(e) => e.key === 'Enter' && (selectedEnrollment = null)}
+          role="button"
+          tabindex="0"
+          aria-label="Close modal backdrop"
         ></div>
         
-        <div class="relative bg-white w-full sm:max-w-5xl sm:mx-auto rounded-t-2xl sm:rounded-lg shadow-xl transform transition-all max-h-[90vh] overflow-hidden">
+        <div class="relative bg-white w-full sm:max-w-4xl lg:max-w-6xl xl:max-w-7xl sm:mx-auto rounded-t-2xl sm:rounded-lg shadow-xl transform transition-all max-h-[90vh] overflow-hidden">
           <!-- Modal Header -->
           <div class="sticky top-0 bg-white px-4 py-3 sm:px-6 sm:py-4 border-b flex items-center justify-between">
             <div class="flex-1 pr-3">
@@ -403,7 +414,9 @@
             </div>
             <button
               onclick={() => selectedEnrollment = null}
+              onkeydown={(e) => e.key === 'Enter' && (selectedEnrollment = null)}
               class="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              aria-label="Close modal"
             >
               <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -419,9 +432,9 @@
                 <p class="text-sm text-gray-600 mt-3">Loading details...</p>
               </div>
             {:else}
-              <div class="p-4 sm:p-6 space-y-4 sm:space-y-6">
+              <div class="p-4 sm:p-6 lg:p-8 space-y-4 sm:space-y-6">
                 <!-- Mobile: Single Column, Desktop: Two Columns -->
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                <div class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                   <!-- Student Info -->
                   <div class="space-y-4">
                     <div class="bg-gray-50 rounded-lg p-3 sm:p-4">
@@ -733,6 +746,16 @@
             rejectionReason = '';
             enrollmentToReject = null;
           }}
+          onkeydown={(e) => {
+            if (e.key === 'Enter') {
+              showRejectModal = false;
+              rejectionReason = '';
+              enrollmentToReject = null;
+            }
+          }}
+          role="button"
+          tabindex="0"
+          aria-label="Close reject modal backdrop"
         ></div>
         
         <div class="relative bg-white w-full sm:max-w-md sm:mx-auto rounded-t-2xl sm:rounded-lg shadow-xl transform transition-all">
@@ -804,7 +827,7 @@
   
   /* Better touch targets for mobile */
   @media (max-width: 640px) {
-    button, a, input, select, textarea {
+    button, input, select, textarea {
       min-height: 44px;
     }
   }
