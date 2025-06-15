@@ -28,42 +28,37 @@
   };
 </script>
 
-<nav class={mobile ? 'space-y-2 px-2' : 'flex items-center space-x-1'}>
+<nav class={mobile ? 'space-y-1.5 px-2' : 'flex items-center space-x-1'}>
   {#each navItems as item}
     <a
       href={item.href}
       class={`
-        relative group overflow-hidden
+        relative group
         ${mobile 
-          ? 'flex items-center space-x-3 px-4 py-3 rounded-2xl' 
-          : 'flex items-center space-x-2 px-4 py-2.5 rounded-full'
+          ? 'flex items-center space-x-3 px-4 py-2.5 rounded-xl' 
+          : 'flex items-center space-x-2 px-3.5 py-2 rounded-lg'
         }
         ${isActive(item.href)
-          ? 'bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 text-white shadow-lg shadow-green-500/30'
+          ? 'bg-emerald-600 text-white shadow-sm'
           : item.special && $enrollmentSettings.isOpen
-            ? 'bg-gradient-to-r from-emerald-50 to-teal-50 text-emerald-700 border-2 border-emerald-400 hover:border-emerald-500 hover:shadow-lg hover:shadow-emerald-400/30'
-            : 'text-gray-600 hover:text-gray-900'
+            ? 'bg-emerald-50 text-emerald-700 font-medium'
+            : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
         }
-        transition-all duration-300 transform hover:scale-105
+        transition-all duration-200
       `}
       onclick={handleClick}
     >
-      <!-- Animated background for non-active items -->
+      <!-- Clean hover effect -->
       {#if !isActive(item.href)}
-        <div class="absolute inset-0 bg-gradient-to-r from-emerald-400/0 via-green-400/20 to-teal-400/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-      {/if}
-      
-      <!-- Glow effect for active items -->
-      {#if isActive(item.href)}
-        <div class="absolute inset-0 bg-gradient-to-r from-emerald-400 via-green-400 to-teal-400 opacity-0 group-hover:opacity-100 blur-xl transition-opacity duration-300"></div>
+        <div class="absolute inset-0 bg-gradient-to-r from-transparent via-gray-100/50 to-transparent opacity-0 group-hover:opacity-100 rounded-lg transition-opacity duration-300"></div>
       {/if}
       
       <!-- Icon -->
       <svg 
         class={`
           ${mobile ? 'w-5 h-5' : 'w-4 h-4'} 
-          ${isActive(item.href) ? 'animate-pulse' : ''}
-          relative z-10 transition-transform duration-300 group-hover:rotate-12
+          flex-shrink-0
+          ${isActive(item.href) ? 'text-white' : ''}
         `} 
         fill="none" 
         stroke="currentColor" 
@@ -74,81 +69,65 @@
       
       <!-- Label -->
       <span class={`
-        relative z-10 font-medium
-        ${mobile ? 'text-base' : 'text-sm'}
-        ${!isActive(item.href) ? 'group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-emerald-600 group-hover:to-teal-600' : ''}
+        relative font-medium
+        ${mobile ? 'text-sm' : 'text-sm'}
       `}>
         {item.label}
         {#if item.special && $enrollmentSettings.isOpen && !isActive(item.href)}
-          <span class="ml-1.5 text-xs font-bold text-emerald-600 animate-pulse">(OPEN)</span>
+          <span class="ml-1.5 inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
+            OPEN
+          </span>
         {/if}
       </span>
-      
-      <!-- Futuristic indicator for active state -->
-      {#if isActive(item.href) && !mobile}
-        <div class="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-1 h-1 bg-white rounded-full animate-ping"></div>
-      {/if}
     </a>
   {/each}
   
   {#if $isAdmin}
     <div class="relative">
-      <!-- Separator with glow effect -->
+      <!-- Clean separator -->
       {#if !mobile}
-        <div class="absolute left-0 top-1/2 -translate-y-1/2 w-px h-6 bg-gradient-to-b from-transparent via-emerald-400 to-transparent"></div>
+        <div class="absolute left-0 top-1/2 -translate-y-1/2 w-px h-5 bg-gray-300"></div>
       {/if}
       
       <a
         href="/admin"
         class={`
-          relative group overflow-hidden ml-3
+          relative group ml-3
           ${mobile 
-            ? 'flex items-center space-x-3 px-4 py-3 rounded-2xl' 
-            : 'flex items-center space-x-2 px-4 py-2.5 rounded-full'
+            ? 'flex items-center space-x-3 px-4 py-2.5 rounded-xl' 
+            : 'flex items-center space-x-2 px-3.5 py-2 rounded-lg'
           }
           ${isActive('/admin')
-            ? 'bg-gradient-to-r from-purple-500 via-pink-500 to-red-500 text-white shadow-lg shadow-purple-500/30'
-            : 'text-gray-600 hover:text-gray-900 border border-gray-200 hover:border-purple-400'
+            ? 'bg-gray-800 text-white shadow-sm'
+            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
           }
-          transition-all duration-300 transform hover:scale-105
+          transition-all duration-200
         `}
         onclick={handleClick}
       >
-        <!-- Animated background -->
-        {#if !isActive('/admin')}
-          <div class="absolute inset-0 bg-gradient-to-r from-purple-400/0 via-pink-400/20 to-red-400/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
-        {/if}
-        
         <!-- Icon -->
         <svg 
           class={`
             ${mobile ? 'w-5 h-5' : 'w-4 h-4'} 
-            relative z-10 transition-transform duration-300 group-hover:rotate-180
+            flex-shrink-0
           `} 
           fill="none" 
           stroke="currentColor" 
           viewBox="0 0 24 24"
         >
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
         </svg>
         
         <!-- Label -->
-        <span class={`
-          relative z-10 font-bold
-          ${mobile ? 'text-base' : 'text-sm'}
-          ${!isActive('/admin') ? 'group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-purple-600 group-hover:to-red-600' : ''}
-        `}>
+        <span class="font-medium text-sm">
           Admin
         </span>
+        
+        <!-- Pro badge -->
+        <svg class="w-3.5 h-3.5 ml-1 opacity-60" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+        </svg>
       </a>
     </div>
   {/if}
 </nav>
-
-<style>
-  @keyframes float {
-    0%, 100% { transform: translateY(0px); }
-    50% { transform: translateY(-5px); }
-  }
-</style>
