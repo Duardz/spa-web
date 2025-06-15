@@ -169,24 +169,41 @@ export const enrollmentOps = {
         constraints.push(where('schoolYear', '==', filters.schoolYear));
       }
       
-      constraints.push(orderBy('submittedAt', 'desc'));
+      // Only add ordering if we have constraints (to avoid index issues)
+      if (constraints.length > 0) {
+        constraints.push(orderBy('submittedAt', 'desc'));
+      }
       
+      // If limitCount is specified, use it. Otherwise get all
       if (filters?.limitCount) {
         constraints.push(limit(filters.limitCount));
       }
       
-      const q = query(collection(db, 'enrollments'), ...constraints);
+      const q = constraints.length > 0 
+        ? query(collection(db, 'enrollments'), ...constraints)
+        : collection(db, 'enrollments');
+        
       const snapshot = await getDocs(q);
       
-      return snapshot.docs.map(doc => ({
+      const enrollments = snapshot.docs.map(doc => ({
         ...doc.data(),
         id: doc.id,
         submittedAt: convertTimestamp(doc.data().submittedAt),
         updatedAt: convertTimestamp(doc.data().updatedAt)
       })) as Enrollment[];
+      
+      // If we couldn't order in the query, sort manually
+      if (constraints.length === 0 || !constraints.some(c => c.type === 'orderBy')) {
+        enrollments.sort((a, b) => 
+          new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime()
+        );
+      }
+      
+      return enrollments;
     } catch (error) {
       console.error('Error fetching enrollments:', error);
-      // Fallback without ordering if index is missing
+      
+      // Fallback: fetch without any constraints
       const snapshot = await getDocs(collection(db, 'enrollments'));
       const enrollments = snapshot.docs.map(doc => ({
         ...doc.data(),
@@ -195,7 +212,7 @@ export const enrollmentOps = {
         updatedAt: convertTimestamp(doc.data().updatedAt)
       })) as Enrollment[];
       
-      // Apply filters manually
+      // Apply filters manually if needed
       let filtered = enrollments;
       if (filters?.status) {
         filtered = filtered.filter(e => e.status === filters.status);
@@ -365,8 +382,11 @@ export const enrollmentOps = {
           originalId: id
         });
         
-        // Delete from active collection
-        batch.delete(doc(db, 'enrollments', id));
+        // Update status to archived instead of deleting
+        batch.update(doc(db, 'enrollments', id), {
+          status: 'archived',
+          updatedAt: serverTimestamp()
+        });
       }
     }
     
@@ -685,6 +705,10 @@ export const enrollmentOpsEnhanced = {
 
   async getById(id: string): Promise<Enrollment | null> {
     return enrollmentOps.getById(id);
+  },
+  
+  async archive(ids: string[]): Promise<void> {
+    return enrollmentOps.archive(ids);
   },
 
   // Batch operations for better performance
