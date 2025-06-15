@@ -119,9 +119,6 @@
           <div class="absolute inset-0 bg-gradient-to-r from-purple-400/0 via-pink-400/20 to-red-400/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700"></div>
         {/if}
         
-        <!-- Admin badge glow -->
-        <div class="absolute -top-1 -right-1 w-3 h-3 bg-purple-500 rounded-full animate-pulse"></div>
-        
         <!-- Icon -->
         <svg 
           class={`

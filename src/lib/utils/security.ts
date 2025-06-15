@@ -106,13 +106,30 @@ export class RateLimiter {
     const oldestAttempt = Math.min(...attempts);
     return oldestAttempt + this.windowMs;
   }
+
+  // Get detailed rate limit status
+  getStatus(identifier: string): {
+    remaining: number;
+    reset: number;
+    total: number;
+  } {
+    const now = Date.now();
+    const attempts = this.attempts.get(identifier) || [];
+    const validAttempts = attempts.filter(time => now - time < this.windowMs);
+    
+    return {
+      remaining: Math.max(0, this.maxAttempts - validAttempts.length),
+      reset: validAttempts.length > 0 ? Math.min(...validAttempts) + this.windowMs : 0,
+      total: this.maxAttempts
+    };
+  }
 }
 
 // Content Security Policy Headers
 export const CSP_HEADERS = {
   'Content-Security-Policy': [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com https://www.googletagmanager.com",
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://www.gstatic.com https://www.googletagmanager.com https://cdnjs.cloudflare.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: https: blob: https://*.googleusercontent.com",
