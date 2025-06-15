@@ -1,67 +1,156 @@
 <script lang="ts">
+  import { onMount, onDestroy } from 'svelte';
   import Button from '../ui/Button.svelte';
+  import LoadingSpinner from '../ui/LoadingSpinner.svelte';
   import type { Enrollment, EnrollmentStatus } from '$lib/types';
-  import { exportToCSV, exportToPDF, batchExportToPDF } from '$lib/utils/exporters';
-  import { enrollmentOps } from '$lib/firebase/firestore';
-  import { sanitizeInput } from '$lib/utils/security';
+  import type { DocumentSnapshot } from 'firebase/firestore';
+  import { enrollmentOpsEnhanced } from '$lib/firebase/firestore';
+  import { exportToCSV, exportToPDF } from '$lib/utils/exporters';
+  import { debounce } from '$lib/utils/helpers';
   
   interface Props {
-    enrollments: Enrollment[];
-    onStatusChange: (id: string, status: EnrollmentStatus, reason?: string) => Promise<void>;
-    onView: (enrollment: Enrollment) => void;
-    onDelete: (id: string) => Promise<void>;
-    loading?: boolean;
+    filters?: {
+      status?: EnrollmentStatus | 'all';
+      type?: 'all' | 'junior' | 'senior';
+      schoolYear?: string;
+      searchTerm?: string;
+    };
+    onStatusChange?: (id: string, status: EnrollmentStatus, reason?: string) => Promise<void>;
+    onView?: (enrollment: Enrollment) => void;
+    onDelete?: (id: string) => Promise<void>;
   }
   
-  let { enrollments, onStatusChange, onView, onDelete, loading = false }: Props = $props();
+  let { 
+    filters = {}, 
+    onStatusChange,
+    onView,
+    onDelete
+  }: Props = $props();
   
+  // State
+  let enrollments = $state<Enrollment[]>([]);
+  let loading = $state(false);
+  let loadingMore = $state(false);
+  let hasMore = $state(true);
+  let totalCount = $state(0);
   let selectedIds = $state<Set<string>>(new Set());
-  let sortBy = $state<'date' | 'name' | 'status'>('date');
+  let sortBy = $state<'submittedAt' | 'fullName' | 'status'>('submittedAt');
   let sortOrder = $state<'asc' | 'desc'>('desc');
-  let showBulkActions = $state(false);
-  let bulkAction = $state<'export' | 'print' | 'delete' | 'archive' | ''>('');
-  let rejectModalOpen = $state(false);
-  let rejectingId = $state<string | null>(null);
-  let rejectionReason = $state('');
+  let currentPage = $state(1);
+  let pageSize = $state(20);
+  let lastDoc = $state<DocumentSnapshot | null>(null);
+  let firstDoc = $state<DocumentSnapshot | null>(null);
   
-  const sortedEnrollments = $derived(() => {
-    const sorted = [...enrollments].sort((a, b) => {
-      let aVal: any, bVal: any;
-      
-      switch (sortBy) {
-        case 'date':
-          aVal = new Date(a.submittedAt).getTime();
-          bVal = new Date(b.submittedAt).getTime();
-          break;
-        case 'name':
-          aVal = a.fullName.toLowerCase();
-          bVal = b.fullName.toLowerCase();
-          break;
-        case 'status':
-          aVal = a.status;
-          bVal = b.status;
-          break;
-      }
-      
-      if (sortOrder === 'asc') {
-        return aVal > bVal ? 1 : -1;
-      } else {
-        return aVal < bVal ? 1 : -1;
-      }
-    });
+  // Search state
+  let searchInput = $state('');
+  let searchResults = $state<Enrollment[]>([]);
+  let isSearching = $state(false);
+  
+  // Intersection Observer for infinite scroll
+  let observerTarget: HTMLDivElement;
+  let observer: IntersectionObserver;
+  
+  // Computed values - Fixed version
+  const displayedData = $derived(searchInput ? searchResults : enrollments);
+  const showingCount = $derived(displayedData.length);
+  
+  // Debounced search
+  const searchEnrollments = debounce(async (term: string) => {
+    if (!term || term.length < 2) {
+      searchResults = [];
+      isSearching = false;
+      return;
+    }
     
-    return sorted;
-  });
+    isSearching = true;
+    try {
+      const results = await enrollmentOpsEnhanced.search(term, {
+        filters: {
+          status: filters.status !== 'all' ? filters.status as EnrollmentStatus : undefined,
+          type: filters.type !== 'all' ? filters.type as 'junior' | 'senior' : undefined,
+          schoolYear: filters.schoolYear
+        }
+      });
+      searchResults = results;
+    } catch (error) {
+      console.error('Search error:', error);
+      searchResults = [];
+    } finally {
+      isSearching = false;
+    }
+  }, 300);
   
-  function toggleSort(field: typeof sortBy) {
+  // Load enrollments with pagination
+  async function loadEnrollments(reset = false) {
+    if (loading || (!hasMore && !reset)) return;
+    
+    // If searching, don't load paginated results
+    if (searchInput.length >= 2) return;
+    
+    loading = !enrollments.length || reset;
+    loadingMore = enrollments.length > 0 && !reset;
+    
+    try {
+      const result = await enrollmentOpsEnhanced.getPaginated({
+        pageSize,
+        cursor: reset ? null : lastDoc,
+        filters: {
+          status: filters.status !== 'all' ? filters.status as EnrollmentStatus : undefined,
+          type: filters.type !== 'all' ? filters.type as 'junior' | 'senior' : undefined,
+          schoolYear: filters.schoolYear
+        },
+        orderByField: sortBy,
+        orderDirection: sortOrder
+      });
+      
+      if (reset) {
+        enrollments = result.data;
+        currentPage = 1;
+      } else {
+        enrollments = [...enrollments, ...result.data];
+      }
+      
+      hasMore = result.hasMore;
+      lastDoc = result.lastDoc;
+      firstDoc = result.firstDoc;
+      
+      // Prefetch next page for smoother experience
+      if (hasMore && lastDoc) {
+        enrollmentOpsEnhanced.prefetchNext(lastDoc, filters);
+      }
+    } catch (error) {
+      console.error('Error loading enrollments:', error);
+    } finally {
+      loading = false;
+      loadingMore = false;
+    }
+  }
+  
+  // Load total count
+  async function loadTotalCount() {
+    try {
+      totalCount = await enrollmentOpsEnhanced.getCount({
+        status: filters.status !== 'all' ? filters.status as EnrollmentStatus : undefined,
+        type: filters.type !== 'all' ? filters.type as 'junior' | 'senior' : undefined,
+        schoolYear: filters.schoolYear
+      });
+    } catch (error) {
+      console.error('Error loading count:', error);
+    }
+  }
+  
+  // Handle sorting
+  function handleSort(field: typeof sortBy) {
     if (sortBy === field) {
       sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
     } else {
       sortBy = field;
       sortOrder = 'desc';
     }
+    loadEnrollments(true);
   }
   
+  // Selection handlers
   function toggleSelect(id: string) {
     const newSet = new Set(selectedIds);
     if (newSet.has(id)) {
@@ -73,79 +162,26 @@
   }
   
   function toggleSelectAll() {
-    if (selectedIds.size === enrollments.length) {
+    const currentData = searchInput ? searchResults : enrollments;
+    if (selectedIds.size === currentData.length && currentData.length > 0) {
       selectedIds = new Set();
     } else {
-      selectedIds = new Set(enrollments.map(e => e.id!));
+      selectedIds = new Set(currentData.map(e => e.id!));
     }
   }
   
-  async function handleBulkAction() {
-    const selectedEnrollments = enrollments.filter(e => selectedIds.has(e.id!));
+  // Bulk actions
+  async function handleBulkExport() {
+    const currentData = searchInput ? searchResults : enrollments;
+    const selected = currentData.filter(e => selectedIds.has(e.id!));
     
-    switch (bulkAction) {
-      case 'export':
-        exportToCSV(selectedEnrollments, `enrollments-${new Date().toISOString().split('T')[0]}.csv`);
-        break;
-        
-      case 'print':
-        batchExportToPDF(selectedEnrollments);
-        break;
-        
-      case 'delete':
-        if (confirm(`Are you sure you want to delete ${selectedIds.size} enrollment(s)? This action cannot be undone.`)) {
-          try {
-            await enrollmentOps.batchDelete(Array.from(selectedIds));
-            selectedIds = new Set();
-            location.reload(); // Refresh to show changes
-          } catch (error) {
-            console.error('Error deleting enrollments:', error);
-            alert('Failed to delete enrollments');
-          }
-        }
-        break;
-        
-      case 'archive':
-        if (confirm(`Archive ${selectedIds.size} enrollment(s)? They will be moved to the archive.`)) {
-          try {
-            await enrollmentOps.archive(Array.from(selectedIds));
-            selectedIds = new Set();
-            location.reload(); // Refresh to show changes
-          } catch (error) {
-            console.error('Error archiving enrollments:', error);
-            alert('Failed to archive enrollments');
-          }
-        }
-        break;
-    }
+    if (selected.length === 0) return;
     
-    bulkAction = '';
-    showBulkActions = false;
+    exportToCSV(selected, `enrollments-${new Date().toISOString().split('T')[0]}.csv`);
+    selectedIds = new Set();
   }
   
-  function openRejectModal(id: string) {
-    rejectingId = id;
-    rejectionReason = '';
-    rejectModalOpen = true;
-  }
-  
-  async function handleReject() {
-    if (!rejectingId || !rejectionReason.trim()) {
-      alert('Please provide a reason for rejection');
-      return;
-    }
-    
-    try {
-      await onStatusChange(rejectingId, 'rejected', sanitizeInput(rejectionReason));
-      rejectModalOpen = false;
-      rejectingId = null;
-      rejectionReason = '';
-    } catch (error) {
-      console.error('Error rejecting enrollment:', error);
-      alert('Failed to reject enrollment');
-    }
-  }
-  
+  // Get status badge classes
   function getStatusColor(status: EnrollmentStatus) {
     switch (status) {
       case 'submitted': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
@@ -156,87 +192,162 @@
     }
   }
   
+  // Format date
   function formatDate(date: Date) {
     return new Date(date).toLocaleDateString('en-PH', {
       month: 'short',
       day: 'numeric',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      year: 'numeric'
     });
   }
+  
+  // Watch for filter changes
+  let previousFilters = JSON.stringify(filters);
+  $effect(() => {
+    const currentFilters = JSON.stringify(filters);
+    if (currentFilters !== previousFilters) {
+      previousFilters = currentFilters;
+      // Reset and reload when filters change
+      enrollments = [];
+      lastDoc = null;
+      hasMore = true;
+      currentPage = 1;
+      loadEnrollments(true);
+      loadTotalCount();
+    }
+  });
+  
+  // Watch for search input
+  $effect(() => {
+    searchEnrollments(searchInput);
+  });
+  
+  // Setup intersection observer for infinite scroll
+  onMount(() => {
+    observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loading && !loadingMore && !searchInput) {
+          loadEnrollments();
+        }
+      },
+      { threshold: 0.1 }
+    );
+    
+    if (observerTarget) {
+      observer.observe(observerTarget);
+    }
+    
+    // Initial load
+    loadEnrollments(true);
+    loadTotalCount();
+  });
+  
+  onDestroy(() => {
+    if (observer) {
+      observer.disconnect();
+    }
+  });
 </script>
 
 <div class="bg-white rounded-lg shadow-lg overflow-hidden">
-  <!-- Table Actions -->
-  <div class="px-6 py-4 border-b border-gray-200 bg-gray-50">
-    <div class="flex items-center justify-between">
-      <div class="flex items-center space-x-4">
-        <span class="text-sm text-gray-700 font-medium">
-          {selectedIds.size} of {enrollments.length} selected
-        </span>
-        
+  <!-- Header with stats - Mobile responsive -->
+  <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gray-50">
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div class="text-sm text-gray-700">
+        <span class="font-medium">{showingCount}</span> of 
+        <span class="font-medium">{totalCount}</span> enrollments
         {#if selectedIds.size > 0}
-          <div class="flex items-center space-x-2">
-            <select 
-              bind:value={bulkAction}
-              class="text-sm border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-            >
-              <option value="">Bulk Actions</option>
-              <option value="export">Export CSV</option>
-              <option value="print">Print Forms</option>
-              <option value="archive">Archive</option>
-              <option value="delete">Delete</option>
-            </select>
-            
-            {#if bulkAction}
-              <Button 
-                variant={bulkAction === 'delete' ? 'danger' : 'primary'} 
-                size="sm" 
-                onclick={handleBulkAction}
-              >
-                Apply
-              </Button>
-            {/if}
-          </div>
+          • <span class="font-medium text-blue-600">{selectedIds.size} selected</span>
         {/if}
       </div>
       
-      <div class="flex items-center space-x-2">
-        <span class="text-sm text-gray-700 mr-2">Sort by:</span>
-        <select 
-          bind:value={sortBy}
-          aria-label="Sort by"
-          class="text-sm border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
-        >
-          <option value="date">Date</option>
-          <option value="name">Name</option>
-          <option value="status">Status</option>
-        </select>
+      <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
+        <!-- Search - Full width on mobile -->
+        <div class="relative">
+          <input
+            type="text"
+            bind:value={searchInput}
+            placeholder="Search..."
+            class="w-full sm:w-64 pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+          />
+          <svg class="absolute left-2.5 top-2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          {#if isSearching}
+            <div class="absolute right-2 top-2">
+              <LoadingSpinner size="sm" />
+            </div>
+          {/if}
+        </div>
+        
+        <div class="flex gap-2">
+          <!-- Page size selector -->
+          <select 
+            bind:value={pageSize}
+            onchange={() => loadEnrollments(true)}
+            class="flex-1 sm:flex-none text-sm border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+          >
+            <option value={10}>10/page</option>
+            <option value={20}>20/page</option>
+            <option value={50}>50/page</option>
+          </select>
+          
+          <!-- Bulk actions - Show only when items selected -->
+          {#if selectedIds.size > 0}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onclick={handleBulkExport}
+              class="whitespace-nowrap"
+            >
+              <svg class="w-4 h-4 sm:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span class="hidden sm:inline">Export</span>
+            </Button>
+          {/if}
+          
+          <!-- Refresh -->
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onclick={() => {
+              loadEnrollments(true);
+              loadTotalCount();
+            }}
+            disabled={loading}
+            class="!p-2"
+          >
+            <svg class={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </Button>
+        </div>
       </div>
     </div>
   </div>
   
-  <!-- Table -->
-  <div class="overflow-x-auto">
+  <!-- Table - Desktop -->
+  <div class="hidden sm:block overflow-x-auto">
     <table class="min-w-full divide-y divide-gray-200">
       <thead class="bg-gray-50">
         <tr>
           <th class="px-6 py-3 text-left">
             <input
               type="checkbox"
-              checked={selectedIds.size === enrollments.length && enrollments.length > 0}
+              checked={selectedIds.size === displayedData.length && displayedData.length > 0}
               onchange={toggleSelectAll}
               class="rounded border-gray-300 text-green-600 focus:ring-green-500"
+              aria-label="Select all"
             />
           </th>
           <th 
             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
-            onclick={() => toggleSort('name')}
+            onclick={() => handleSort('fullName')}
           >
             <div class="flex items-center">
               Student
-              {#if sortBy === 'name'}
+              {#if sortBy === 'fullName'}
                 <svg class="ml-1 w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                   {#if sortOrder === 'asc'}
                     <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
@@ -252,7 +363,7 @@
           </th>
           <th 
             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
-            onclick={() => toggleSort('status')}
+            onclick={() => handleSort('status')}
           >
             <div class="flex items-center">
               Status
@@ -269,11 +380,11 @@
           </th>
           <th 
             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:text-gray-700"
-            onclick={() => toggleSort('date')}
+            onclick={() => handleSort('submittedAt')}
           >
             <div class="flex items-center">
               Submitted
-              {#if sortBy === 'date'}
+              {#if sortBy === 'submittedAt'}
                 <svg class="ml-1 w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
                   {#if sortOrder === 'asc'}
                     <path fill-rule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clip-rule="evenodd" />
@@ -290,192 +401,234 @@
         </tr>
       </thead>
       <tbody class="bg-white divide-y divide-gray-200">
-        {#each sortedEnrollments() as enrollment}
-          <tr class="hover:bg-gray-50 transition-colors">
-            <td class="px-6 py-4 whitespace-nowrap">
-              <input
-                type="checkbox"
-                checked={selectedIds.has(enrollment.id!)}
-                onchange={() => toggleSelect(enrollment.id!)}
-                class="rounded border-gray-300 text-green-600 focus:ring-green-500"
-              />
+        {#if loading && enrollments.length === 0}
+          <tr>
+            <td colspan="6" class="px-6 py-12 text-center">
+              <LoadingSpinner size="lg" />
+              <p class="mt-2 text-sm text-gray-500">Loading enrollments...</p>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="flex items-center">
-                <div class="flex-shrink-0 h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
-                  <span class="text-green-700 font-semibold">
-                    {enrollment.fullName.charAt(0)}
-                  </span>
-                </div>
-                <div class="ml-4">
-                  <div class="text-sm font-medium text-gray-900">{enrollment.fullName}</div>
-                  <div class="text-sm text-gray-500">{enrollment.userEmail}</div>
-                  {#if enrollment.rejectionReason}
-                    <div class="text-xs text-red-600 mt-1">
-                      Rejected: {enrollment.rejectionReason}
-                    </div>
-                  {/if}
-                </div>
-              </div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <div class="text-sm text-gray-900">
-                {enrollment.type === 'junior' ? 'Junior High' : 'Senior High'}
-              </div>
-              <div class="text-sm text-gray-500">
-                Grade {enrollment.gradeLevel}
-                {#if enrollment.type === 'senior'}
-                  • {enrollment.strand}
-                {/if}
-              </div>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-              <span class={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(enrollment.status)}`}>
-                {enrollment.status.charAt(0).toUpperCase() + enrollment.status.slice(1)}
-              </span>
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-              {formatDate(enrollment.submittedAt)}
-            </td>
-            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-              <div class="flex items-center justify-end space-x-2">
-                <button
-                  onclick={() => onView(enrollment)}
-                  class="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
-                  title="View details"
-                  aria-label="View enrollment details"
-                >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                  </svg>
-                </button>
-                
-                {#if enrollment.status === 'submitted'}
-                  <button
-                    onclick={() => onStatusChange(enrollment.id!, 'verified')}
-                    disabled={loading}
-                    class="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50 transition-colors"
-                    title="Verify"
-                    aria-label="Verify enrollment"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </button>
-                {/if}
-                
-                {#if enrollment.status === 'verified'}
-                  <button
-                    onclick={() => onStatusChange(enrollment.id!, 'printed')}
-                    disabled={loading}
-                    class="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
-                    title="Mark as printed"
-                    aria-label="Mark enrollment as printed"
-                  >
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                    </svg>
-                  </button>
-                {/if}
-                
-                <button
-                  onclick={() => {
-                    if (confirm('Are you sure you want to delete this enrollment?')) {
-                      onDelete(enrollment.id!);
-                    }
-                  }}
-                  disabled={loading}
-                  class="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 transition-colors"
-                  title="Delete"
-                  aria-label="Delete enrollment"
-                >
-                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
+          </tr>
+        {:else if displayedData.length === 0}
+          <tr>
+            <td colspan="6" class="px-6 py-12 text-center text-gray-500">
+              {#if searchInput}
+                <svg class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <p class="text-lg font-medium">No results found</p>
+                <p class="text-sm text-gray-400 mt-1">Try adjusting your search terms</p>
+              {:else}
+                <svg class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <p class="text-lg font-medium">No enrollments found</p>
+                <p class="text-sm text-gray-400 mt-1">Try adjusting your filters or wait for new applications</p>
+              {/if}
             </td>
           </tr>
         {:else}
-          <tr>
-            <td colspan="6" class="px-6 py-8 text-center text-gray-500">
-              <svg class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <p class="text-lg font-medium">No enrollments found</p>
-              <p class="text-sm text-gray-400 mt-1">Try adjusting your filters or wait for new applications</p>
-            </td>
-          </tr>
-        {/each}
+          {#each displayedData as enrollment}
+            <tr class="hover:bg-gray-50 transition-colors">
+              <td class="px-6 py-4 whitespace-nowrap">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(enrollment.id!)}
+                  onchange={() => toggleSelect(enrollment.id!)}
+                  class="rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  aria-label={`Select ${enrollment.fullName}`}
+                />
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="flex items-center">
+                  <div class="flex-shrink-0 h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
+                    <span class="text-green-700 font-semibold">
+                      {enrollment.fullName.charAt(0)}
+                    </span>
+                  </div>
+                  <div class="ml-4">
+                    <div class="text-sm font-medium text-gray-900">{enrollment.fullName}</div>
+                    <div class="text-sm text-gray-500">{enrollment.lrn}</div>
+                  </div>
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <div class="text-sm text-gray-900">
+                  {enrollment.type === 'junior' ? 'Junior High' : 'Senior High'}
+                </div>
+                <div class="text-sm text-gray-500">
+                  Grade {enrollment.gradeLevel}
+                  {#if enrollment.type === 'senior'}
+                    • {enrollment.strand}
+                  {/if}
+                </div>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap">
+                <span class={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(enrollment.status)}`}>
+                  {enrollment.status.charAt(0).toUpperCase() + enrollment.status.slice(1)}
+                </span>
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                {formatDate(enrollment.submittedAt)}
+              </td>
+              <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                <div class="flex items-center justify-end space-x-2">
+                  {#if onView}
+                    <button
+                      onclick={() => onView(enrollment)}
+                      class="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
+                      title="View details"
+                      aria-label="View enrollment details"
+                    >
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    </button>
+                  {/if}
+                  
+                  {#if onStatusChange && enrollment.status === 'submitted'}
+                    <button
+                      onclick={() => onStatusChange(enrollment.id!, 'verified')}
+                      class="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50 transition-colors"
+                      title="Verify"
+                      aria-label="Verify enrollment"
+                    >
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    </button>
+                  {/if}
+                  
+                  {#if onDelete}
+                    <button
+                      onclick={() => {
+                        if (confirm('Are you sure you want to delete this enrollment?')) {
+                          onDelete(enrollment.id!);
+                        }
+                      }}
+                      class="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50 transition-colors"
+                      title="Delete"
+                      aria-label="Delete enrollment"
+                    >
+                      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  {/if}
+                </div>
+              </td>
+            </tr>
+          {/each}
+        {/if}
       </tbody>
     </table>
   </div>
-</div>
-
-<!-- Rejection Modal -->
-{#if rejectModalOpen}
-  <div class="fixed inset-0 z-50 overflow-y-auto">
-    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-      <div 
-        class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
-        onclick={() => rejectModalOpen = false}
-        role="button"
-        tabindex="0"
-        onkeydown={(e) => e.key === 'Enter' && (rejectModalOpen = false)}
-        aria-label="Close modal"
-      ></div>
-      
-      <div class="inline-block w-full max-w-md px-4 pt-5 pb-4 overflow-hidden text-left align-bottom transition-all transform bg-white rounded-lg shadow-xl sm:my-8 sm:align-middle sm:p-6">
-        <div>
-          <div class="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full">
-            <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          </div>
-          <div class="mt-3 text-center sm:mt-5">
-            <h3 class="text-lg font-medium leading-6 text-gray-900">
-              Reject Application
-            </h3>
-            <div class="mt-2">
-              <p class="text-sm text-gray-500">
-                Please provide a reason for rejecting this application. This will be recorded and may be communicated to the applicant.
+  
+  <!-- Mobile Card View -->
+  <div class="sm:hidden">
+    {#if loading && enrollments.length === 0}
+      <div class="p-8 text-center">
+        <LoadingSpinner size="lg" />
+        <p class="mt-2 text-sm text-gray-500">Loading enrollments...</p>
+      </div>
+    {:else if displayedData.length === 0}
+      <div class="p-8 text-center">
+        {#if searchInput}
+          <svg class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <p class="text-lg font-medium">No results found</p>
+          <p class="text-sm text-gray-400 mt-1">Try adjusting your search terms</p>
+        {:else}
+          <svg class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <p class="text-lg font-medium">No enrollments found</p>
+          <p class="text-sm text-gray-400 mt-1">Try adjusting your filters</p>
+        {/if}
+      </div>
+    {:else}
+      <div class="divide-y divide-gray-200">
+        {#each displayedData as enrollment}
+          <div class="p-4 hover:bg-gray-50">
+            <div class="flex items-start justify-between mb-2">
+              <div class="flex items-center">
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(enrollment.id!)}
+                  onchange={() => toggleSelect(enrollment.id!)}
+                  class="mr-3 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                />
+                <div>
+                  <h3 class="text-sm font-medium text-gray-900">{enrollment.fullName}</h3>
+                  <p class="text-xs text-gray-500">{enrollment.lrn}</p>
+                </div>
+              </div>
+              <span class={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full border ${getStatusColor(enrollment.status)}`}>
+                {enrollment.status}
+              </span>
+            </div>
+            
+            <div class="text-xs text-gray-600 space-y-1 ml-7">
+              <p>{enrollment.type === 'junior' ? 'JHS' : 'SHS'} Grade {enrollment.gradeLevel}
+                {#if enrollment.type === 'senior'} • {enrollment.strand}{/if}
               </p>
+              <p>Submitted: {formatDate(enrollment.submittedAt)}</p>
+            </div>
+            
+            <div class="flex items-center gap-2 mt-3 ml-7">
+              {#if onView}
+                <button
+                  onclick={() => onView(enrollment)}
+                  class="text-xs text-blue-600 hover:text-blue-900"
+                >
+                  View
+                </button>
+              {/if}
+              {#if onStatusChange && enrollment.status === 'submitted'}
+                <span class="text-gray-300">|</span>
+                <button
+                  onclick={() => onStatusChange(enrollment.id!, 'verified')}
+                  class="text-xs text-green-600 hover:text-green-900"
+                >
+                  Verify
+                </button>
+              {/if}
+              {#if onDelete}
+                <span class="text-gray-300">|</span>
+                <button
+                  onclick={() => {
+                    if (confirm('Delete this enrollment?')) {
+                      onDelete(enrollment.id!);
+                    }
+                  }}
+                  class="text-xs text-red-600 hover:text-red-900"
+                >
+                  Delete
+                </button>
+              {/if}
             </div>
           </div>
-        </div>
-        
-        <div class="mt-5">
-          <label for="reason" class="block text-sm font-medium text-gray-700">
-            Rejection Reason
-          </label>
-          <textarea
-            id="reason"
-            bind:value={rejectionReason}
-            rows="3"
-            class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500"
-            placeholder="e.g., Incomplete documents, Invalid information, etc."
-          ></textarea>
-        </div>
-        
-        <div class="mt-5 sm:mt-6 sm:grid sm:grid-cols-2 sm:gap-3 sm:grid-flow-row-dense">
-          <Button
-            variant="danger"
-            onclick={handleReject}
-            disabled={!rejectionReason.trim()}
-            class="sm:col-start-2"
-          >
-            Reject Application
-          </Button>
-          <Button
-            variant="outline"
-            onclick={() => rejectModalOpen = false}
-            class="mt-3 sm:mt-0 sm:col-start-1"
-          >
-            Cancel
-          </Button>
-        </div>
+        {/each}
       </div>
-    </div>
+    {/if}
   </div>
-{/if}
+  
+  <!-- Loading more indicator -->
+  {#if loadingMore}
+    <div class="px-6 py-4 text-center border-t">
+      <LoadingSpinner size="sm" />
+      <span class="ml-2 text-sm text-gray-500">Loading more...</span>
+    </div>
+  {/if}
+  
+  <!-- Infinite scroll trigger -->
+  <div bind:this={observerTarget} class="h-4"></div>
+  
+  <!-- No more results -->
+  {#if !hasMore && enrollments.length > 0 && !searchInput}
+    <div class="px-6 py-4 text-center text-sm text-gray-500 border-t">
+      No more enrollments to load
+    </div>
+  {/if}
+</div>
