@@ -74,9 +74,7 @@
       `}>
         {item.label}
         {#if item.special && $enrollmentSettings.isOpen && !isActive(item.href)}
-          <span class="ml-1.5 inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-100 text-emerald-800">
-            OPEN
-          </span>
+          <span class="ml-2 inline-block w-2 h-2 rounded-full bg-emerald-500 shadow shadow-emerald-400"></span>
         {/if}
       </span>
     </a>
