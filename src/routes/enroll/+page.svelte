@@ -31,13 +31,27 @@
   }
   
   // Security: Validate enrollment data
-  function validateEnrollmentData(data: any): boolean {
-    // Basic validation - the forms should do detailed validation
-    if (!data.type || !['junior', 'senior'].includes(data.type)) return false;
-    if (!data.firstName || !data.lastName) return false;
-    if (!data.birthDate) return false;
-    return true;
+function validateEnrollmentData(data: any): boolean {
+  // Basic validation - the forms should do detailed validation
+  if (!data.type || !['junior', 'senior'].includes(data.type)) return false;
+  if (!data.fullName || data.fullName.trim().length === 0) return false;
+  if (!data.birthDate) return false;
+  if (!data.lrn || data.lrn.length !== 12) return false;
+  if (!data.gradeLevel) return false;
+  if (!data.guardianName) return false;
+  if (!data.contactNumber) return false;
+  
+  // Check for required fields based on type
+  if (data.type === 'senior') {
+    if (!data.strand) return false;
+    if (!data.semester) return false;
+    if (!data.birthPlace) return false;
+    if (!data.fatherName) return false;
+    if (!data.motherName) return false;
   }
+  
+  return true;
+}
   
   // Load user's existing enrollments with caching
   async function loadEnrollments() {
@@ -97,9 +111,29 @@
       return;
     }
     
-    // Validate data
+    // Validate data with specific error messages
     if (!validateEnrollmentData(data)) {
-      error = 'Please fill in all required fields correctly.';
+      // Check which field is missing for better error message
+      if (!data.type) {
+        error = 'Enrollment type is missing. Please refresh the page and try again.';
+      } else if (!data.fullName || data.fullName.trim().length === 0) {
+        error = 'Full name is required. Please go back and fill in all required fields.';
+      } else if (!data.birthDate) {
+        error = 'Birth date is required. Please go back and fill in all required fields.';
+      } else if (!data.lrn || data.lrn.length !== 12) {
+        error = 'Valid LRN (12 digits) is required. Please go back and check your LRN.';
+      } else if (!data.gradeLevel) {
+        error = 'Grade level is required. Please go back and select your grade level.';
+      } else if (!data.guardianName) {
+        error = 'Guardian name is required. Please go back and fill in guardian information.';
+      } else if (!data.contactNumber) {
+        error = 'Contact number is required. Please go back and fill in contact information.';
+      } else if (data.type === 'senior' && !data.strand) {
+        error = 'Academic strand is required for Senior High. Please go back and select a strand.';
+      } else {
+        error = 'Please fill in all required fields correctly. Some information appears to be missing.';
+      }
+      console.error('Validation failed:', { data, error });
       return;
     }
     
