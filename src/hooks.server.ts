@@ -16,7 +16,8 @@ const SECURITY_CONFIG = {
   allowedOrigins: [
     'https://stpatrickacademy.edu.ph',
     'https://admin.stpatrickacademy.edu.ph',
-    'https://secure.stpatrickacademy.edu.ph'
+    'https://secure.stpatrickacademy.edu.ph',
+    'https://spa-web-sigma.vercel.app' // Added Vercel URL
   ],
   allowedRedirects: ['/', '/admin', '/enroll', '/profile', '/dashboard', '/signin']
 };
@@ -48,6 +49,9 @@ export const handle: Handle = async ({ event, resolve }) => {
   const isAdminRoute = event.url.pathname.startsWith('/admin');
   const isAuthRoute = event.url.pathname === '/signin' || event.url.pathname.startsWith('/api/auth');
   const isApiRoute = event.url.pathname.startsWith('/api');
+  
+  // Check if running on Vercel
+  const isVercelDeployment = host.includes('vercel.app');
   
   // Generate request ID for tracing
   const requestId = crypto.randomUUID();
@@ -122,8 +126,8 @@ export const handle: Handle = async ({ event, resolve }) => {
     event.url.searchParams.delete('redirect');
   }
   
-  // Handle subdomain routing
-  if (!dev) {
+  // Handle subdomain routing - Skip if on Vercel
+  if (!dev && !isVercelDeployment) {
     // Force HTTPS
     if (event.url.protocol === 'http:') {
       return new Response(null, {

@@ -34,17 +34,22 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-# Firebase
-.firebase/
+# Firebase (only debug files since you're not hosting there)
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
-firebase-export-*
 
 # Testing
 /coverage
-.nyc_output
+/.nyc_output
 
 # Misc
 *.pem
 .vercel
+.history
+
+# Temporary files
+*.tmp
+*.temp
+.temp
+.cache
