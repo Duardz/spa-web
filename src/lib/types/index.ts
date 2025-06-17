@@ -1,107 +1,115 @@
-// place files you want to import through the `$lib` alias in this folder.
-// User types
-export interface User {
-  uid: string;
-  email: string;
-  displayName: string;
-  photoURL?: string;
-  role: 'student' | 'admin';
-}
+// src/lib/types/index.ts
 
-// Enrollment types - Added 'rejected' status
-export type EnrollmentStatus = 'submitted' | 'verified' | 'printed' | 'rejected' | 'archived';
-export type GradeLevel = '7' | '8' | '9' | '10' | '11' | '12';
-export type Strand = 'STEM' | 'HUMSS' | 'ABM';
-export type Semester = '1st' | '2nd';
-
-// Base enrollment interface
-interface BaseEnrollment {
+// Base enrollment interface with common fields
+export interface BaseEnrollment {
   id?: string;
-  userId: string;
-  userEmail: string;
+  type: 'junior' | 'senior';
+  schoolYear: string;
   status: EnrollmentStatus;
   submittedAt: Date;
   updatedAt: Date;
-  schoolYear: string;
+  userId: string;
+  userEmail: string;
   
-  // Personal info
-  lrn: string;
+  // Personal Information
   fullName: string;
   birthDate: string;
   age: number;
-  gender: 'Male' | 'Female';
+  gender: string;
   religion: string;
   address: string;
   
-  // Academic info
+  // Academic Information
+  gradeLevel: string;
   lastSchool: string;
   generalAverage: number;
   isTransferee: boolean;
+  lrn: string;
   
-  // Contact info
-  guardianName: string;
-  guardianRelation: string;
+  // Contact Information
   contactNumber: string;
   
-  // Admin notes (for rejection reasons, etc.)
-  adminNotes?: string;
-  rejectionReason?: string;
+  // Guardian Information
+  guardianName: string;
+  guardianRelation: string;
   
-  // Signatures (base64 or URL)
-  studentSignature?: string;
-  parentSignature?: string;
-  teacherSignature?: string;
-  principalSignature?: string;
-  cashierSignature?: string;
-}
-
-// Junior High enrollment
-export interface JuniorHighEnrollment extends BaseEnrollment {
-  type: 'junior';
-  gradeLevel: Extract<GradeLevel, '7' | '8' | '9' | '10'>;
-  
-  // Documents
-  hasForm10: boolean;
-  hasPSA: boolean;
-  hasBaptismal: boolean;
-  hasGoodMoral: boolean;
-  
-  // Academic
-  hasAcademicExcellence: boolean;
-}
-
-// Senior High enrollment
-export interface SeniorHighEnrollment extends BaseEnrollment {
-  type: 'senior';
-  gradeLevel: Extract<GradeLevel, '11' | '12'>;
-  strand: Strand;
-  semester: Semester;
+  // ESC Grant
   isESCGrantee: boolean;
   
-  // Additional personal info
+  // Rejection reason (if rejected)
+  rejectionReason?: string;
+  
+  // Encryption fields
+  _encrypted?: boolean;
+  _iv?: string;
+  _encryptedAt?: string;
+  _searchHash?: string;
+}
+
+// Junior High specific fields
+export interface JuniorHighEnrollment extends BaseEnrollment {
+  type: 'junior';
+  
+  // Document Requirements
+  hasForm9: boolean;
+  hasForm10: boolean;
+  hasPSA: boolean;
+  hasGoodMoral: boolean;
+  hasBaptismal: boolean;
+  
+  // Achievement fields
+  hasAcademicExcellence?: boolean;
+  hasAcademicAward?: boolean;
+}
+
+// Senior High specific fields
+export interface SeniorHighEnrollment extends BaseEnrollment {
+  type: 'senior';
+  
+  // Additional Personal Information
   birthPlace: string;
   
-  // Parents info
+  // Academic Information
+  strand: string;
+  semester: string;
+  
+  // Parent Information
   fatherName: string;
   fatherOccupation: string;
   motherName: string;
   motherOccupation: string;
   
-  // Documents
+  // Document Requirements
   hasForm9: boolean;
   hasForm10: boolean;
   hasPSA: boolean;
-  hasMoral: boolean;
-  hasBaptismal: boolean;
+  hasGoodMoral: boolean;
   hasCompletionCert: boolean;
   hasESC: boolean;
   hasNCAE: boolean;
   
-  // Academic
-  hasAcademicAward: boolean;
+  // Achievement fields
+  hasAcademicExcellence?: boolean;
+  hasAcademicAward?: boolean;
 }
 
+// Union type for all enrollments
 export type Enrollment = JuniorHighEnrollment | SeniorHighEnrollment;
+
+// Status types
+export type EnrollmentStatus = 'submitted' | 'verified' | 'printed' | 'rejected' | 'archived';
+
+// Dashboard Stats
+export interface DashboardStats {
+  totalEnrollments: number;
+  pendingVerification: number;
+  verifiedToday: number;
+  rejectedCount: number;
+  juniorHighCount: number;
+  seniorHighCount: number;
+  todayApplications: number;
+  weekApplications: number;
+}
 
 // Teacher type
 export interface Teacher {
@@ -114,33 +122,34 @@ export interface Teacher {
   order: number;
 }
 
-// News post type
+// News Post type
 export interface NewsPost {
   id?: string;
   title: string;
-  content: string;
   excerpt: string;
-  imageUrl?: string;
+  content: string;
   author: string;
-  publishedAt: Date;
-  updatedAt: Date;
+  imageUrl?: string;
   isPublished: boolean;
+  publishedAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-// Admin dashboard stats
-export interface DashboardStats {
-  totalEnrollments: number;
-  pendingVerification: number;
-  verifiedToday: number;
-  rejectedCount: number;
-  juniorHighCount: number;
-  seniorHighCount: number;
-  todayApplications: number;
-  weekApplications: number;
+// User type
+export interface User {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+  role?: 'student' | 'admin';
 }
 
-// Form validation errors
-export interface ValidationError {
-  field: string;
-  message: string;
+// Settings type
+export interface EnrollmentSettings {
+  isOpen: boolean;
+  schoolYear: string;
+  juniorHighOpen?: boolean;
+  seniorHighOpen?: boolean;
+  message?: string;
 }

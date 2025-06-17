@@ -1,487 +1,435 @@
 <script lang="ts">
-  import Button from '../ui/Button.svelte';
-  import LoadingSpinner from '../ui/LoadingSpinner.svelte';
-  import type { Enrollment, EnrollmentStatus, SeniorHighEnrollment, JuniorHighEnrollment } from '$lib/types';
-  import { exportToPDF } from '$lib/utils/exporters';
+  import Button from '$lib/components/ui/Button.svelte';
+  import type { Enrollment, EnrollmentStatus } from '$lib/types';
   
   interface Props {
     enrollment: Enrollment;
     onClose: () => void;
-    onStatusChange: (id: string, status: EnrollmentStatus, reason?: string) => Promise<void>;
+    onStatusChange: (id: string, status: EnrollmentStatus) => void;
     onReject: (id: string) => void;
     isUpdating?: boolean;
   }
   
   let { enrollment, onClose, onStatusChange, onReject, isUpdating = false }: Props = $props();
   
-  // Helpers
-  function getStatusColor(status: EnrollmentStatus) {
-    switch (status) {
-      case 'submitted': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'verified': return 'bg-green-100 text-green-800 border-green-200';
-      case 'printed': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
-      case 'archived': return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  }
-  
-  function formatDate(date: Date) {
-    return new Date(date).toLocaleDateString('en-PH', {
+  function formatDate(date: Date): string {
+    return new Date(date).toLocaleString('en-PH', {
+      year: 'numeric',
       month: 'long',
       day: 'numeric',
-      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     });
   }
   
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      onClose();
+  function formatBirthDate(date: string | Date): string {
+    return new Date(date).toLocaleDateString('en-PH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  }
+  
+  function getStatusActions() {
+    const actions: Array<{
+      label: string;
+      status: EnrollmentStatus;
+      variant: 'primary' | 'outline' | 'danger';
+    }> = [];
+    
+    switch (enrollment.status) {
+      case 'submitted':
+        actions.push({ label: 'Verify', status: 'verified', variant: 'primary' });
+        actions.push({ label: 'Reject', status: 'rejected', variant: 'danger' });
+        break;
+      case 'verified':
+        actions.push({ label: 'Mark as Printed', status: 'printed', variant: 'primary' });
+        actions.push({ label: 'Revert to Submitted', status: 'submitted', variant: 'outline' });
+        break;
+      case 'printed':
+        actions.push({ label: 'Archive', status: 'archived', variant: 'outline' });
+        break;
+      case 'rejected':
+        actions.push({ label: 'Revert to Submitted', status: 'submitted', variant: 'primary' });
+        break;
     }
+    
+    return actions;
+  }
+  
+  function handlePrint() {
+    window.print();
   }
 </script>
 
-<svelte:window on:keydown={handleKeydown} />
-
 <div class="fixed inset-0 z-50 overflow-y-auto">
-  <div class="flex items-center justify-center min-h-screen px-4 sm:px-0">
+  <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+    <!-- Background overlay -->
     <button
       type="button"
-      class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75 cursor-default"
+      class="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
       onclick={onClose}
-      onkeydown={(e) => e.key === 'Enter' && onClose()}
-      aria-label="Close modal backdrop"
+      aria-label="Close modal"
     ></button>
-    
-    <div class="relative bg-white w-full max-w-6xl mx-auto rounded-lg shadow-xl transform transition-all max-h-[90vh] overflow-hidden">
-      <!-- Modal Header -->
-      <div class="sticky top-0 bg-white px-6 py-4 border-b flex items-center justify-between z-10">
-        <div class="flex-1 pr-3">
-          <h3 class="text-lg font-medium text-gray-900">
+
+    <!-- Modal panel -->
+    <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+      <!-- Header -->
+      <div class="bg-gradient-to-r from-green-600 to-green-700 px-4 py-4 sm:px-6">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-medium text-white">
             Enrollment Details
           </h3>
-          <p class="text-sm text-gray-500 mt-0.5">
-            ID: {enrollment.id} • Submitted: {formatDate(enrollment.submittedAt)}
-          </p>
+          <button
+            onclick={onClose}
+            class="text-green-200 hover:text-white transition-colors"
+            aria-label="Close"
+          >
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-        <button
-          onclick={onClose}
-          class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-          aria-label="Close modal"
-        >
-          <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        </button>
       </div>
-      
-      <!-- Modal Content -->
-      <div class="overflow-y-auto max-h-[calc(90vh-8rem)] p-6">
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <!-- Column 1: Personal & Guardian Info -->
-          <div class="space-y-6">
-            <!-- Status Badge -->
-            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-              <span class="text-sm font-medium text-gray-700">Status:</span>
-              <span class={`inline-flex px-3 py-1 text-sm font-semibold rounded-full border ${getStatusColor(enrollment.status)}`}>
-                {enrollment.status.charAt(0).toUpperCase() + enrollment.status.slice(1)}
-              </span>
+
+      <!-- Content -->
+      <div class="px-4 py-5 sm:p-6 max-h-[70vh] overflow-y-auto print-content">
+        <!-- Status Badge -->
+        <div class="mb-6">
+          <span class={`inline-flex px-3 py-1 text-sm font-semibold rounded-full border ${
+            enrollment.status === 'submitted' ? 'bg-yellow-100 text-yellow-800 border-yellow-200' :
+            enrollment.status === 'verified' ? 'bg-green-100 text-green-800 border-green-200' :
+            enrollment.status === 'printed' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+            enrollment.status === 'rejected' ? 'bg-red-100 text-red-800 border-red-200' :
+            'bg-gray-100 text-gray-800 border-gray-200'
+          }`}>
+            {enrollment.status.charAt(0).toUpperCase() + enrollment.status.slice(1)}
+          </span>
+          <span class="ml-2 text-sm text-gray-500">
+            Submitted on {formatDate(enrollment.submittedAt)}
+          </span>
+        </div>
+
+        <!-- Basic Information -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <h4 class="text-lg font-semibold text-gray-900 mb-4">Personal Information</h4>
+            <dl class="space-y-3">
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Full Name</dt>
+                <dd class="text-sm text-gray-900">{enrollment.fullName || 'Not provided'}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">LRN</dt>
+                <dd class="text-sm text-gray-900 font-mono">{enrollment.lrn || 'Not provided'}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Birth Date</dt>
+                <dd class="text-sm text-gray-900">
+                  {enrollment.birthDate ? formatBirthDate(enrollment.birthDate) : 'Not provided'}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Age</dt>
+                <dd class="text-sm text-gray-900">{enrollment.age || 'Not provided'}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Gender</dt>
+                <dd class="text-sm text-gray-900">{enrollment.gender || 'Not provided'}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Religion</dt>
+                <dd class="text-sm text-gray-900">{enrollment.religion || 'Not provided'}</dd>
+              </div>
+              {#if enrollment.type === 'senior'}
+                <div>
+                  <dt class="text-sm font-medium text-gray-500">Birth Place</dt>
+                  <dd class="text-sm text-gray-900">{enrollment.birthPlace || 'Not provided'}</dd>
+                </div>
+              {/if}
+            </dl>
+          </div>
+
+          <div>
+            <h4 class="text-lg font-semibold text-gray-900 mb-4">Academic Information</h4>
+            <dl class="space-y-3">
+              <div>
+                <dt class="text-sm font-medium text-gray-500">School Year</dt>
+                <dd class="text-sm text-gray-900">{enrollment.schoolYear}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Type</dt>
+                <dd class="text-sm text-gray-900">
+                  {enrollment.type === 'junior' ? 'Junior High School' : 'Senior High School'}
+                </dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Grade Level</dt>
+                <dd class="text-sm text-gray-900">Grade {enrollment.gradeLevel}</dd>
+              </div>
+              {#if enrollment.type === 'senior'}
+                <div>
+                  <dt class="text-sm font-medium text-gray-500">Strand</dt>
+                  <dd class="text-sm text-gray-900">{enrollment.strand || 'Not specified'}</dd>
+                </div>
+                <div>
+                  <dt class="text-sm font-medium text-gray-500">Semester</dt>
+                  <dd class="text-sm text-gray-900">{enrollment.semester || 'Not specified'}</dd>
+                </div>
+              {/if}
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Previous School</dt>
+                <dd class="text-sm text-gray-900">{enrollment.lastSchool || 'Not provided'}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">General Average</dt>
+                <dd class="text-sm text-gray-900">{enrollment.generalAverage || 'Not provided'}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Transferee</dt>
+                <dd class="text-sm text-gray-900">{enrollment.isTransferee ? 'Yes' : 'No'}</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+
+        <!-- Contact Information -->
+        <div class="mt-6 pt-6 border-t">
+          <h4 class="text-lg font-semibold text-gray-900 mb-4">Contact Information</h4>
+          <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Address</dt>
+              <dd class="text-sm text-gray-900">{enrollment.address || 'Not provided'}</dd>
             </div>
-            
-            <!-- Personal Information -->
-            <div class="bg-gray-50 rounded-lg p-4">
-              <h4 class="text-sm font-medium text-gray-900 mb-4 flex items-center">
-                <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                </svg>
-                Personal Information
-              </h4>
-              <dl class="space-y-3 text-sm">
-                <div>
-                  <dt class="text-gray-500">Full Name</dt>
-                  <dd class="font-medium text-gray-900 mt-1">{enrollment.fullName}</dd>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <dt class="text-gray-500">LRN</dt>
-                    <dd class="font-medium text-gray-900 mt-1">{enrollment.lrn}</dd>
-                  </div>
-                  <div>
-                    <dt class="text-gray-500">Type</dt>
-                    <dd class="font-medium text-gray-900 mt-1">
-                      {enrollment.type === 'junior' ? 'Junior High' : 'Senior High'}
-                    </dd>
-                  </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <dt class="text-gray-500">Grade Level</dt>
-                    <dd class="font-medium text-gray-900 mt-1">Grade {enrollment.gradeLevel}</dd>
-                  </div>
-                  {#if enrollment.type === 'senior'}
-                    <div>
-                      <dt class="text-gray-500">Strand</dt>
-                      <dd class="font-medium text-gray-900 mt-1">{(enrollment as SeniorHighEnrollment).strand}</dd>
-                    </div>
-                  {/if}
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <dt class="text-gray-500">Birth Date</dt>
-                    <dd class="font-medium text-gray-900 mt-1">{enrollment.birthDate}</dd>
-                  </div>
-                  <div>
-                    <dt class="text-gray-500">Age</dt>
-                    <dd class="font-medium text-gray-900 mt-1">{enrollment.age} years</dd>
-                  </div>
-                </div>
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <dt class="text-gray-500">Gender</dt>
-                    <dd class="font-medium text-gray-900 mt-1">{enrollment.gender}</dd>
-                  </div>
-                  <div>
-                    <dt class="text-gray-500">Religion</dt>
-                    <dd class="font-medium text-gray-900 mt-1">{enrollment.religion}</dd>
-                  </div>
-                </div>
-                {#if enrollment.type === 'senior'}
-                  <div>
-                    <dt class="text-gray-500">Birth Place</dt>
-                    <dd class="font-medium text-gray-900 mt-1">{(enrollment as SeniorHighEnrollment).birthPlace}</dd>
-                  </div>
-                {/if}
-                <div>
-                  <dt class="text-gray-500">Address</dt>
-                  <dd class="font-medium text-gray-900 mt-1">{enrollment.address}</dd>
-                </div>
-              </dl>
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Contact Number</dt>
+              <dd class="text-sm text-gray-900">{enrollment.contactNumber || 'Not provided'}</dd>
             </div>
-            
-            <!-- Guardian Information -->
-            <div class="bg-gray-50 rounded-lg p-4">
-              <h4 class="text-sm font-medium text-gray-900 mb-4 flex items-center">
-                <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                </svg>
-                Guardian Information
-              </h4>
-              <dl class="space-y-3 text-sm">
-                <div>
-                  <dt class="text-gray-500">Guardian Name</dt>
-                  <dd class="font-medium text-gray-900 mt-1">{enrollment.guardianName}</dd>
-                </div>
-                <div>
-                  <dt class="text-gray-500">Relationship</dt>
-                  <dd class="font-medium text-gray-900 mt-1">{enrollment.guardianRelation}</dd>
-                </div>
-                <div>
-                  <dt class="text-gray-500">Contact Number</dt>
-                  <dd class="font-medium text-gray-900 mt-1">{enrollment.contactNumber}</dd>
-                </div>
-              </dl>
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Email</dt>
+              <dd class="text-sm text-gray-900">{enrollment.userEmail}</dd>
             </div>
-            
+          </dl>
+        </div>
+
+        <!-- Guardian Information -->
+        <div class="mt-6 pt-6 border-t">
+          <h4 class="text-lg font-semibold text-gray-900 mb-4">Guardian Information</h4>
+          <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Guardian Name</dt>
+              <dd class="text-sm text-gray-900">{enrollment.guardianName || 'Not provided'}</dd>
+            </div>
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Relationship</dt>
+              <dd class="text-sm text-gray-900">{enrollment.guardianRelation || 'Not provided'}</dd>
+            </div>
             {#if enrollment.type === 'senior'}
-              <!-- Parents Information -->
-              <div class="bg-gray-50 rounded-lg p-4">
-                <h4 class="text-sm font-medium text-gray-900 mb-4">Parents Information</h4>
-                <dl class="space-y-3 text-sm">
-                  <div>
-                    <dt class="text-gray-500">Father's Name</dt>
-                    <dd class="font-medium text-gray-900 mt-1">{(enrollment as SeniorHighEnrollment).fatherName}</dd>
-                  </div>
-                  <div>
-                    <dt class="text-gray-500">Father's Occupation</dt>
-                    <dd class="font-medium text-gray-900 mt-1">{(enrollment as SeniorHighEnrollment).fatherOccupation}</dd>
-                  </div>
-                  <div>
-                    <dt class="text-gray-500">Mother's Name</dt>
-                    <dd class="font-medium text-gray-900 mt-1">{(enrollment as SeniorHighEnrollment).motherName}</dd>
-                  </div>
-                  <div>
-                    <dt class="text-gray-500">Mother's Occupation</dt>
-                    <dd class="font-medium text-gray-900 mt-1">{(enrollment as SeniorHighEnrollment).motherOccupation}</dd>
-                  </div>
-                </dl>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Father's Name</dt>
+                <dd class="text-sm text-gray-900">{enrollment.fatherName || 'Not provided'}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Father's Occupation</dt>
+                <dd class="text-sm text-gray-900">{enrollment.fatherOccupation || 'Not provided'}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Mother's Name</dt>
+                <dd class="text-sm text-gray-900">{enrollment.motherName || 'Not provided'}</dd>
+              </div>
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Mother's Occupation</dt>
+                <dd class="text-sm text-gray-900">{enrollment.motherOccupation || 'Not provided'}</dd>
               </div>
             {/if}
-          </div>
-          
-          <!-- Column 2: Academic & Documents -->
-          <div class="space-y-6">
-            <!-- Academic Information -->
-            <div class="bg-gray-50 rounded-lg p-4">
-              <h4 class="text-sm font-medium text-gray-900 mb-4 flex items-center">
-                <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </dl>
+        </div>
+
+        <!-- Document Requirements -->
+        <div class="mt-6 pt-6 border-t">
+          <h4 class="text-lg font-semibold text-gray-900 mb-4">Document Requirements</h4>
+          <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {#if enrollment.type === 'junior'}
+              <div class="flex items-center">
+                <svg class={`w-5 h-5 mr-2 ${enrollment.hasForm9 ? 'text-green-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                 </svg>
-                Academic Information
-              </h4>
-              <dl class="space-y-3 text-sm">
-                <div>
-                  <dt class="text-gray-500">School Year</dt>
-                  <dd class="font-medium text-gray-900 mt-1">{enrollment.schoolYear}</dd>
-                </div>
-                {#if enrollment.type === 'senior'}
-                  <div>
-                    <dt class="text-gray-500">Semester</dt>
-                    <dd class="font-medium text-gray-900 mt-1">{(enrollment as SeniorHighEnrollment).semester} Semester</dd>
-                  </div>
-                {/if}
-                <div>
-                  <dt class="text-gray-500">Last School Attended</dt>
-                  <dd class="font-medium text-gray-900 mt-1">{enrollment.lastSchool}</dd>
-                </div>
-                <div>
-                  <dt class="text-gray-500">General Average</dt>
-                  <dd class="font-medium text-gray-900 mt-1">{enrollment.generalAverage}%</dd>
-                </div>
-                <div>
-                  <dt class="text-gray-500">Student Type</dt>
-                  <dd class="font-medium text-gray-900 mt-1">
-                    {enrollment.isTransferee ? 'Transferee' : 'Regular Student'}
-                  </dd>
-                </div>
-                {#if enrollment.type === 'junior'}
-                  <div>
-                    <dt class="text-gray-500">Academic Excellence</dt>
-                    <dd class="font-medium text-gray-900 mt-1">
-                      {(enrollment as JuniorHighEnrollment).hasAcademicExcellence ? 'Yes' : 'No'}
-                    </dd>
-                  </div>
-                {:else}
-                  <div>
-                    <dt class="text-gray-500">ESC Grantee</dt>
-                    <dd class="font-medium text-gray-900 mt-1">
-                      {(enrollment as SeniorHighEnrollment).isESCGrantee ? 'Yes' : 'No'}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt class="text-gray-500">Academic Award</dt>
-                    <dd class="font-medium text-gray-900 mt-1">
-                      {(enrollment as SeniorHighEnrollment).hasAcademicAward ? 'Yes' : 'No'}
-                    </dd>
-                  </div>
-                {/if}
-              </dl>
-            </div>
-            
-            <!-- Documents Checklist -->
-            <div class="bg-gray-50 rounded-lg p-4">
-              <h4 class="text-sm font-medium text-gray-900 mb-4 flex items-center">
-                <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                Documents Submitted
-              </h4>
-              <div class="space-y-2">
-                {#if enrollment.type === 'junior'}
-                  {@const junior = enrollment as JuniorHighEnrollment}
-                  <label class="flex items-center text-sm">
-                    <input type="checkbox" checked={junior.hasForm10} disabled class="mr-2 text-green-600" />
-                    <span class={junior.hasForm10 ? 'text-green-700' : 'text-gray-500'}>
-                      SF10 (Form 137)
-                    </span>
-                  </label>
-                  <label class="flex items-center text-sm">
-                    <input type="checkbox" checked={junior.hasPSA} disabled class="mr-2 text-green-600" />
-                    <span class={junior.hasPSA ? 'text-green-700' : 'text-gray-500'}>
-                      PSA Birth Certificate
-                    </span>
-                  </label>
-                  <label class="flex items-center text-sm">
-                    <input type="checkbox" checked={junior.hasBaptismal} disabled class="mr-2 text-green-600" />
-                    <span class={junior.hasBaptismal ? 'text-green-700' : 'text-gray-500'}>
-                      Baptismal Certificate
-                    </span>
-                  </label>
-                  <label class="flex items-center text-sm">
-                    <input type="checkbox" checked={junior.hasGoodMoral} disabled class="mr-2 text-green-600" />
-                    <span class={junior.hasGoodMoral ? 'text-green-700' : 'text-gray-500'}>
-                      Good Moral Certificate
-                    </span>
-                  </label>
-                {:else}
-                  {@const senior = enrollment as SeniorHighEnrollment}
-                  <label class="flex items-center text-sm">
-                    <input type="checkbox" checked={senior.hasForm9} disabled class="mr-2 text-green-600" />
-                    <span class={senior.hasForm9 ? 'text-green-700' : 'text-gray-500'}>
-                      SF9 (Report Card)
-                    </span>
-                  </label>
-                  <label class="flex items-center text-sm">
-                    <input type="checkbox" checked={senior.hasForm10} disabled class="mr-2 text-green-600" />
-                    <span class={senior.hasForm10 ? 'text-green-700' : 'text-gray-500'}>
-                      SF10 (Form 137)
-                    </span>
-                  </label>
-                  <label class="flex items-center text-sm">
-                    <input type="checkbox" checked={senior.hasPSA} disabled class="mr-2 text-green-600" />
-                    <span class={senior.hasPSA ? 'text-green-700' : 'text-gray-500'}>
-                      PSA Birth Certificate
-                    </span>
-                  </label>
-                  <label class="flex items-center text-sm">
-                    <input type="checkbox" checked={senior.hasMoral} disabled class="mr-2 text-green-600" />
-                    <span class={senior.hasMoral ? 'text-green-700' : 'text-gray-500'}>
-                      Good Moral Certificate
-                    </span>
-                  </label>
-                  <label class="flex items-center text-sm">
-                    <input type="checkbox" checked={senior.hasBaptismal} disabled class="mr-2 text-green-600" />
-                    <span class={senior.hasBaptismal ? 'text-green-700' : 'text-gray-500'}>
-                      Baptismal Certificate
-                    </span>
-                  </label>
-                  <label class="flex items-center text-sm">
-                    <input type="checkbox" checked={senior.hasCompletionCert} disabled class="mr-2 text-green-600" />
-                    <span class={senior.hasCompletionCert ? 'text-green-700' : 'text-gray-500'}>
-                      JHS Completion Certificate
-                    </span>
-                  </label>
-                  <label class="flex items-center text-sm">
-                    <input type="checkbox" checked={senior.hasESC} disabled class="mr-2 text-green-600" />
-                    <span class={senior.hasESC ? 'text-green-700' : 'text-gray-500'}>
-                      ESC Certificate
-                    </span>
-                  </label>
-                  <label class="flex items-center text-sm">
-                    <input type="checkbox" checked={senior.hasNCAE} disabled class="mr-2 text-green-600" />
-                    <span class={senior.hasNCAE ? 'text-green-700' : 'text-gray-500'}>
-                      NCAE Result
-                    </span>
-                  </label>
-                {/if}
+                <span class="text-sm">Form 9</span>
               </div>
-            </div>
-          </div>
-          
-          <!-- Column 3: Application Info & Actions -->
-          <div class="space-y-6">
-            <!-- Application Information -->
-            <div class="bg-gray-50 rounded-lg p-4">
-              <h4 class="text-sm font-medium text-gray-900 mb-4 flex items-center">
-                <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <div class="flex items-center">
+                <svg class={`w-5 h-5 mr-2 ${enrollment.hasForm10 ? 'text-green-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
                 </svg>
-                Application Information
-              </h4>
-              <dl class="space-y-3 text-sm">
-                <div>
-                  <dt class="text-gray-500">Application ID</dt>
-                  <dd class="font-medium text-gray-900 mt-1 font-mono text-xs">{enrollment.id}</dd>
-                </div>
-                <div>
-                  <dt class="text-gray-500">Submitted By</dt>
-                  <dd class="font-medium text-gray-900 mt-1">{enrollment.userEmail}</dd>
-                </div>
-                <div>
-                  <dt class="text-gray-500">Submitted On</dt>
-                  <dd class="font-medium text-gray-900 mt-1">{formatDate(enrollment.submittedAt)}</dd>
-                </div>
-                <div>
-                  <dt class="text-gray-500">Last Updated</dt>
-                  <dd class="font-medium text-gray-900 mt-1">{formatDate(enrollment.updatedAt)}</dd>
-                </div>
-              </dl>
-            </div>
-            
-            {#if enrollment.rejectionReason}
-              <!-- Rejection Reason -->
-              <div class="bg-red-50 border border-red-200 rounded-lg p-4">
-                <h4 class="text-sm font-medium text-red-900 mb-2 flex items-center">
-                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Rejection Reason
-                </h4>
-                <p class="text-sm text-red-700">{enrollment.rejectionReason}</p>
+                <span class="text-sm">Form 10</span>
+              </div>
+              <div class="flex items-center">
+                <svg class={`w-5 h-5 mr-2 ${enrollment.hasPSA ? 'text-green-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-sm">PSA Birth Certificate</span>
+              </div>
+              <div class="flex items-center">
+                <svg class={`w-5 h-5 mr-2 ${enrollment.hasGoodMoral ? 'text-green-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-sm">Good Moral Certificate</span>
+              </div>
+              <div class="flex items-center">
+                <svg class={`w-5 h-5 mr-2 ${enrollment.hasBaptismal ? 'text-green-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-sm">Baptismal Certificate</span>
+              </div>
+            {:else}
+              <div class="flex items-center">
+                <svg class={`w-5 h-5 mr-2 ${enrollment.hasForm9 ? 'text-green-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-sm">Form 9</span>
+              </div>
+              <div class="flex items-center">
+                <svg class={`w-5 h-5 mr-2 ${enrollment.hasForm10 ? 'text-green-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-sm">Form 10</span>
+              </div>
+              <div class="flex items-center">
+                <svg class={`w-5 h-5 mr-2 ${enrollment.hasPSA ? 'text-green-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-sm">PSA Birth Certificate</span>
+              </div>
+              <div class="flex items-center">
+                <svg class={`w-5 h-5 mr-2 ${enrollment.hasGoodMoral ? 'text-green-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-sm">Good Moral Certificate</span>
+              </div>
+              <div class="flex items-center">
+                <svg class={`w-5 h-5 mr-2 ${enrollment.hasCompletionCert ? 'text-green-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-sm">JHS Completion Certificate</span>
+              </div>
+              <div class="flex items-center">
+                <svg class={`w-5 h-5 mr-2 ${enrollment.hasESC ? 'text-green-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-sm">ESC Certificate</span>
+              </div>
+              <div class="flex items-center">
+                <svg class={`w-5 h-5 mr-2 ${enrollment.hasNCAE ? 'text-green-500' : 'text-gray-300'}`} fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <span class="text-sm">NCAE Results</span>
               </div>
             {/if}
-            
-            <!-- Quick Actions -->
-            <div class="bg-gray-50 rounded-lg p-4">
-              <h4 class="text-sm font-medium text-gray-900 mb-4">Quick Actions</h4>
-              <div class="space-y-2">
-                {#if enrollment.status === 'submitted'}
-                  <Button 
-                    variant="success" 
-                    onclick={() => onStatusChange(enrollment.id!, 'verified')}
-                    loading={isUpdating}
-                    fullWidth
-                  >
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Verify Application
-                  </Button>
-                  
-                  <Button 
-                    variant="danger" 
-                    onclick={() => onReject(enrollment.id!)}
-                    fullWidth
-                  >
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Reject Application
-                  </Button>
-                {/if}
-                
-                {#if enrollment.status === 'verified'}
-                  <Button 
-                    variant="primary" 
-                    onclick={() => onStatusChange(enrollment.id!, 'printed')}
-                    loading={isUpdating}
-                    fullWidth
-                  >
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                    </svg>
-                    Mark as Printed
-                  </Button>
-                {/if}
-                
-                {#if enrollment.status === 'printed'}
-                  <Button 
-                    variant="outline" 
-                    onclick={() => onStatusChange(enrollment.id!, 'archived')}
-                    loading={isUpdating}
-                    fullWidth
-                  >
-                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
-                    </svg>
-                    Archive
-                  </Button>
-                {/if}
-                
-                <Button 
-                  variant="outline" 
-                  onclick={() => exportToPDF(enrollment)}
-                  fullWidth
-                >
-                  <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                  </svg>
-                  Print Form
-                </Button>
-              </div>
-            </div>
           </div>
         </div>
+
+        <!-- Additional Information -->
+        {#if enrollment.hasAcademicExcellence || enrollment.hasAcademicAward}
+          <div class="mt-6 pt-6 border-t">
+            <h4 class="text-lg font-semibold text-gray-900 mb-4">Achievements</h4>
+            <div class="space-y-2">
+              {#if enrollment.hasAcademicExcellence}
+                <div class="flex items-center">
+                  <svg class="w-5 h-5 mr-2 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  <span class="text-sm">Academic Excellence</span>
+                </div>
+              {/if}
+              {#if enrollment.hasAcademicAward}
+                <div class="flex items-center">
+                  <svg class="w-5 h-5 mr-2 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                  <span class="text-sm">Academic Award</span>
+                </div>
+              {/if}
+            </div>
+          </div>
+        {/if}
+
+        <!-- Rejection Reason (if rejected) -->
+        {#if enrollment.status === 'rejected' && enrollment.rejectionReason}
+          <div class="mt-6 pt-6 border-t">
+            <h4 class="text-lg font-semibold text-red-900 mb-2">Rejection Reason</h4>
+            <p class="text-sm text-red-700 bg-red-50 p-3 rounded-md">
+              {enrollment.rejectionReason}
+            </p>
+          </div>
+        {/if}
+
+        <!-- System Information -->
+        <div class="mt-6 pt-6 border-t">
+          <h4 class="text-lg font-semibold text-gray-900 mb-4">System Information</h4>
+          <dl class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Application ID</dt>
+              <dd class="text-sm text-gray-900 font-mono">{enrollment.id}</dd>
+            </div>
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Submitted By</dt>
+              <dd class="text-sm text-gray-900">{enrollment.userEmail}</dd>
+            </div>
+            <div>
+              <dt class="text-sm font-medium text-gray-500">Submitted At</dt>
+              <dd class="text-sm text-gray-900">{formatDate(enrollment.submittedAt)}</dd>
+            </div>
+            {#if enrollment.updatedAt}
+              <div>
+                <dt class="text-sm font-medium text-gray-500">Last Updated</dt>
+                <dd class="text-sm text-gray-900">{formatDate(enrollment.updatedAt)}</dd>
+              </div>
+            {/if}
+          </dl>
+        </div>
       </div>
-      
-      <!-- Footer Actions -->
-      <div class="sticky bottom-0 bg-white border-t px-6 py-4">
-        <div class="flex justify-end">
-          <Button variant="ghost" onclick={onClose}>
-            Close
+
+      <!-- Footer -->
+      <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse print:hidden">
+        <div class="flex gap-3">
+          {#each getStatusActions() as action}
+            <Button
+              variant={action.variant}
+              onclick={() => {
+                if (action.status === 'rejected') {
+                  onReject(enrollment.id!);
+                } else {
+                  onStatusChange(enrollment.id!, action.status);
+                }
+              }}
+              loading={isUpdating}
+            >
+              {action.label}
+            </Button>
+          {/each}
+          <Button variant="outline" onclick={handlePrint}>
+            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+            </svg>
+            Print
           </Button>
         </div>
+        <Button variant="outline" onclick={onClose} class="mr-auto">
+          Close
+        </Button>
       </div>
     </div>
   </div>
 </div>
+
+<style>
+  @media print {
+    .print-content {
+      max-height: none !important;
+      overflow: visible !important;
+    }
+    
+    .print:hidden {
+      display: none !important;
+    }
+  }
+</style>

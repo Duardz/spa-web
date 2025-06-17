@@ -4,6 +4,8 @@
   import LoadingSpinner from '$lib/components/ui/LoadingSpinner.svelte';
   import { enrollmentOps, teacherOps, newsOps } from '$lib/firebase/firestore';
   import { enrollmentSettings } from '$lib/stores/enrollment';
+  import { decryptEnrollmentData, canDecrypt, isEncryptionConfigured } from '$lib/utils/encryption';
+  import { user } from '$lib/stores/auth';
   import type { DashboardStats, Enrollment, NewsPost } from '$lib/types';
   
   let loading = $state(true);
@@ -21,6 +23,11 @@
   let recentNews = $state<NewsPost[]>([]);
   let teacherCount = $state(0);
   let activityData = $state<{ date: string; count: number; verified: number; rejected: number }[]>([]);
+  
+  // Check if user can decrypt
+  const userCanDecrypt = $derived(() => canDecrypt($user?.role));
+  // Only show warning if encryption is not configured AND we're in development
+  const encryptionWarning = $state(!isEncryptionConfigured() && import.meta.env.DEV);
   
   onMount(async () => {
     try {
@@ -45,7 +52,16 @@
       };
       
       teacherCount = teachers.length;
-      recentEnrollments = pendingEnrollments;
+      
+      // Decrypt recent enrollments if user has permission
+      if (userCanDecrypt()) {
+        recentEnrollments = pendingEnrollments.map(enrollment => 
+          enrollment._encrypted ? decryptEnrollmentData(enrollment) : enrollment
+        );
+      } else {
+        recentEnrollments = pendingEnrollments;
+      }
+      
       recentNews = news;
       activityData = activity;
     } catch (error) {
@@ -62,6 +78,13 @@
       hour: '2-digit',
       minute: '2-digit'
     });
+  }
+  
+  function displayName(enrollment: Enrollment): string {
+    if (!enrollment._encrypted || userCanDecrypt()) {
+      return enrollment.fullName || 'Unknown';
+    }
+    return 'Encrypted Data';
   }
   
   // Calculate percentage changes
@@ -108,6 +131,25 @@
       </div>
     </div>
   </div>
+  
+  <!-- Encryption Status Card -->
+  {#if userCanDecrypt()}
+    <Card class="border-2 border-green-200 bg-green-50 p-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm font-medium text-green-800">Encryption Active</h3>
+          <p class="mt-1 text-sm text-green-700">
+            Enrollment data is encrypted. You have permission to view decrypted information.
+          </p>
+        </div>
+      </div>
+    </Card>
+  {/if}
   
   {#if loading}
     <div class="flex justify-center py-12">
@@ -397,14 +439,21 @@
                 <div class="flex items-center space-x-2 sm:space-x-3 min-w-0">
                   <div class="w-8 h-8 sm:w-10 sm:h-10 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
                     <span class="text-green-700 font-semibold text-xs sm:text-sm">
-                      {enrollment.fullName.charAt(0)}
+                      {displayName(enrollment).charAt(0)}
                     </span>
                   </div>
                   <div class="min-w-0">
-                    <p class="font-medium text-gray-900 text-xs sm:text-sm truncate">{enrollment.fullName}</p>
+                    <p class="font-medium text-gray-900 text-xs sm:text-sm truncate">
+                      {displayName(enrollment)}
+                      {#if enrollment._encrypted && !userCanDecrypt()}
+                        <svg class="w-3 h-3 inline-block ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      {/if}
+                    </p>
                     <p class="text-xs text-gray-600 truncate">
                       {enrollment.type === 'junior' ? 'JHS' : 'SHS'} Grade {enrollment.gradeLevel}
-                      {enrollment.type === 'senior' ? ` - ${enrollment.strand}` : ''}
+                      {enrollment.type === 'senior' && enrollment.strand ? ` - ${enrollment.strand}` : ''}
                     </p>
                   </div>
                 </div>
@@ -459,14 +508,18 @@
           <div class="bg-pink-50 rounded-lg p-3 sm:p-4 col-span-2">
             <div class="flex items-center justify-between">
               <div>
-                <p class="text-xs sm:text-sm text-pink-600">Average Processing Time</p>
-                <p class="text-lg sm:text-xl lg:text-2xl font-bold text-pink-700">2.5 days</p>
+                <p class="text-xs sm:text-sm text-pink-600">Data Security</p>
+                <p class="text-lg sm:text-xl lg:text-2xl font-bold text-pink-700">
+                  {userCanDecrypt() ? 'Full Access' : 'Limited Access'}
+                </p>
               </div>
               <svg class="w-6 h-6 sm:w-8 sm:h-8 text-pink-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
-            <p class="text-xs text-pink-600 mt-1 sm:mt-2">From submission to verification</p>
+            <p class="text-xs text-pink-600 mt-1 sm:mt-2">
+              {userCanDecrypt() ? 'You can view encrypted enrollment data' : 'Encrypted data is protected'}
+            </p>
           </div>
         </div>
       </Card>
@@ -524,6 +577,7 @@
           <div class="w-12 h-12 sm:w-14 sm:h-14 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3 group-hover:bg-purple-200 transition-colors">
             <svg class="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </div>
           <p class="text-xs sm:text-sm font-medium text-gray-900">Settings</p>

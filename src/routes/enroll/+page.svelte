@@ -11,6 +11,7 @@
   import { enrollmentSettings, userEnrollments } from '$lib/stores/enrollment';
   import { enrollmentOps } from '$lib/firebase/firestore';
   import type { Enrollment, JuniorHighEnrollment, SeniorHighEnrollment } from '$lib/types';
+  import { encryptEnrollmentData } from '$lib/utils/encryption'; // make sure this is imported
   
   let selectedType = $state<'junior' | 'senior' | null>(null);
   let existingEnrollments = $state<Enrollment[]>([]);
@@ -31,28 +32,27 @@
   }
   
   // Security: Validate enrollment data
-function validateEnrollmentData(data: any): boolean {
-  // Basic validation - the forms should do detailed validation
-  if (!data.type || !['junior', 'senior'].includes(data.type)) return false;
-  if (!data.fullName || data.fullName.trim().length === 0) return false;
-  if (!data.birthDate) return false;
-  if (!data.lrn || data.lrn.length !== 12) return false;
-  if (!data.gradeLevel) return false;
-  if (!data.guardianName) return false;
-  if (!data.contactNumber) return false;
-  
-  // Check for required fields based on type
-  if (data.type === 'senior') {
-    if (!data.strand) return false;
-    if (!data.semester) return false;
-    if (!data.birthPlace) return false;
-    if (!data.fatherName) return false;
-    if (!data.motherName) return false;
+  function validateEnrollmentData(data: any): boolean {
+    // Basic validation - the forms should do detailed validation
+    if (!data.type || !['junior', 'senior'].includes(data.type)) return false;
+    if (!data.fullName || data.fullName.trim().length === 0) return false;
+    if (!data.birthDate) return false;
+    if (!data.lrn || data.lrn.length !== 12) return false;
+    if (!data.gradeLevel) return false;
+    if (!data.guardianName) return false;
+    if (!data.contactNumber) return false;
+    
+    // Check for required fields based on type
+    if (data.type === 'senior') {
+      if (!data.strand) return false;
+      if (!data.semester) return false;
+      if (!data.birthPlace) return false;
+      if (!data.fatherName) return false;
+      if (!data.motherName) return false;
+    }
+    
+    return true;
   }
-  
-  return true;
-}
-  
   // Load user's existing enrollments with caching
   async function loadEnrollments() {
     if (!$user) return;
@@ -96,24 +96,22 @@ function validateEnrollmentData(data: any): boolean {
     }
   }
   
-  // Handle form submission with improved validation and rate limiting
+
+
   async function handleSubmit(data: Omit<JuniorHighEnrollment, 'id' | 'submittedAt' | 'updatedAt' | 'userId' | 'userEmail' | 'status'> | Omit<SeniorHighEnrollment, 'id' | 'submittedAt' | 'updatedAt' | 'userId' | 'userEmail' | 'status'>) {
-    // Rate limiting
     const now = Date.now();
     if (now - lastSubmitTime < SUBMIT_COOLDOWN) {
       error = 'Please wait a moment before submitting again.';
       return;
     }
     lastSubmitTime = now;
-    
+
     if (!$user) {
       error = 'You must be signed in to submit an enrollment.';
       return;
     }
-    
-    // Validate data with specific error messages
+
     if (!validateEnrollmentData(data)) {
-      // Check which field is missing for better error message
       if (!data.type) {
         error = 'Enrollment type is missing. Please refresh the page and try again.';
       } else if (!data.fullName || data.fullName.trim().length === 0) {
@@ -136,16 +134,14 @@ function validateEnrollmentData(data: any): boolean {
       console.error('Validation failed:', { data, error });
       return;
     }
-    
+
     submitting = true;
     error = '';
     formProgress = 0;
-    
+
     try {
-      // Show progress
       formProgress = 20;
-      
-      // Create enrollment data without id
+
       const enrollmentData = {
         ...data,
         userId: $user.uid,
@@ -154,44 +150,42 @@ function validateEnrollmentData(data: any): boolean {
         updatedAt: new Date(),
         status: 'submitted' as const
       };
-      
+
       formProgress = 60;
-      
-      // Submit to Firestore
-      const enrollmentId = await enrollmentOps.create(enrollmentData);
-      
+
+      // 🔐 Encrypt data before submitting
+      const encryptedData = encryptEnrollmentData(enrollmentData);
+
+      // 🛡️ Send encrypted data to Firestore
+      const enrollmentId = await enrollmentOps.create(encryptedData);
+
       formProgress = 80;
-      
-      // Create the properly typed enrollment for local state
+
+      // Note: decryptedData is not stored in local state
       const newEnrollment = {
         ...enrollmentData,
         id: enrollmentId
       } as Enrollment;
-      
+
       existingEnrollments = [...existingEnrollments, newEnrollment];
       userEnrollments.addEnrollment(newEnrollment);
-      
+
       formProgress = 100;
-      
-      // Show success
       success = true;
       selectedType = null;
-      
-      // Scroll to top smoothly
+
       if (browser) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
-      
-      // Clear success message after 10 seconds
+
       setTimeout(() => {
         success = false;
         formProgress = 0;
       }, 10000);
-      
+
     } catch (err: any) {
       console.error('Submission error:', err);
-      
-      // Provide user-friendly error messages
+
       if (err.code === 'permission-denied') {
         error = 'You do not have permission to submit enrollments.';
       } else if (err.code === 'unavailable') {
@@ -199,11 +193,11 @@ function validateEnrollmentData(data: any): boolean {
       } else {
         error = 'Failed to submit enrollment. Please try again.';
       }
-      
-      // Scroll to error
+
       if (browser) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
+
     } finally {
       submitting = false;
       if (!success) {
@@ -211,6 +205,7 @@ function validateEnrollmentData(data: any): boolean {
       }
     }
   }
+
   
   // Cancel form
   function handleCancel() {

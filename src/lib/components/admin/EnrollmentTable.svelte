@@ -7,6 +7,8 @@
   import { enrollmentOpsEnhanced } from '$lib/firebase/firestore';
   import { exportToCSV, exportToPDF } from '$lib/utils/exporters';
   import { debounce } from '$lib/utils/helpers';
+  import { decryptEnrollmentData, canDecrypt } from '$lib/utils/encryption';
+  import { user } from '$lib/stores/auth';
   
   interface Props {
     filters?: {
@@ -46,6 +48,9 @@
   let searchResults = $state<Enrollment[]>([]);
   let isSearching = $state(false);
   
+  // Check if user can decrypt
+  const userCanDecrypt = $derived(() => canDecrypt($user?.role));
+  
   // Intersection Observer for infinite scroll
   let observerTarget: HTMLDivElement;
   let observer: IntersectionObserver;
@@ -53,6 +58,24 @@
   // Computed values - Fixed version
   const displayedData = $derived(searchInput ? searchResults : enrollments);
   const showingCount = $derived(displayedData.length);
+  
+  // Helper function to display name
+  function displayName(enrollment: Enrollment): string {
+    if (!enrollment._encrypted || userCanDecrypt()) {
+      const data = enrollment._encrypted && userCanDecrypt() ? decryptEnrollmentData(enrollment) : enrollment;
+      return data.fullName || 'Unknown';
+    }
+    return 'Encrypted Data';
+  }
+  
+  // Helper function to display LRN
+  function displayLRN(enrollment: Enrollment): string {
+    if (!enrollment._encrypted || userCanDecrypt()) {
+      const data = enrollment._encrypted && userCanDecrypt() ? decryptEnrollmentData(enrollment) : enrollment;
+      return data.lrn || 'N/A';
+    }
+    return '••••••••••••';
+  }
   
   // Debounced search
   const searchEnrollments = debounce(async (term: string) => {
@@ -177,7 +200,12 @@
     
     if (selected.length === 0) return;
     
-    exportToCSV(selected, `enrollments-${new Date().toISOString().split('T')[0]}.csv`);
+    // Decrypt data if user has permission before exporting
+    const exportData = userCanDecrypt() 
+      ? selected.map(e => e._encrypted ? decryptEnrollmentData(e) : e)
+      : selected;
+    
+    exportToCSV(exportData, `enrollments-${new Date().toISOString().split('T')[0]}.csv`);
     selectedIds = new Set();
   }
   
@@ -199,6 +227,19 @@
       day: 'numeric',
       year: 'numeric'
     });
+  }
+  
+  // Handle view with decryption
+  function handleView(enrollment: Enrollment) {
+    if (onView) {
+      // Decrypt data before passing to view handler if user has permission
+      if (userCanDecrypt() && enrollment._encrypted) {
+        const decrypted = decryptEnrollmentData(enrollment);
+        onView(decrypted);
+      } else {
+        onView(enrollment);
+      }
+    }
   }
   
   // Watch for filter changes
@@ -435,19 +476,26 @@
                   checked={selectedIds.has(enrollment.id!)}
                   onchange={() => toggleSelect(enrollment.id!)}
                   class="rounded border-gray-300 text-green-600 focus:ring-green-500"
-                  aria-label={`Select ${enrollment.fullName}`}
+                  aria-label={`Select ${displayName(enrollment)}`}
                 />
               </td>
               <td class="px-6 py-4 whitespace-nowrap">
                 <div class="flex items-center">
                   <div class="flex-shrink-0 h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
                     <span class="text-green-700 font-semibold">
-                      {enrollment.fullName.charAt(0)}
+                      {displayName(enrollment).charAt(0)}
                     </span>
                   </div>
                   <div class="ml-4">
-                    <div class="text-sm font-medium text-gray-900">{enrollment.fullName}</div>
-                    <div class="text-sm text-gray-500">{enrollment.lrn}</div>
+                    <div class="text-sm font-medium text-gray-900 flex items-center">
+                      {displayName(enrollment)}
+                      {#if enrollment._encrypted && !userCanDecrypt()}
+                        <svg class="w-3 h-3 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      {/if}
+                    </div>
+                    <div class="text-sm text-gray-500">{displayLRN(enrollment)}</div>
                   </div>
                 </div>
               </td>
@@ -474,7 +522,7 @@
                 <div class="flex items-center justify-end space-x-2">
                   {#if onView}
                     <button
-                      onclick={() => onView(enrollment)}
+                      onclick={() => handleView(enrollment)}
                       class="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50 transition-colors"
                       title="View details"
                       aria-label="View enrollment details"
@@ -560,8 +608,15 @@
                   class="mr-3 rounded border-gray-300 text-green-600 focus:ring-green-500"
                 />
                 <div>
-                  <h3 class="text-sm font-medium text-gray-900">{enrollment.fullName}</h3>
-                  <p class="text-xs text-gray-500">{enrollment.lrn}</p>
+                  <h3 class="text-sm font-medium text-gray-900 flex items-center">
+                    {displayName(enrollment)}
+                    {#if enrollment._encrypted && !userCanDecrypt()}
+                      <svg class="w-3 h-3 ml-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                    {/if}
+                  </h3>
+                  <p class="text-xs text-gray-500">{displayLRN(enrollment)}</p>
                 </div>
               </div>
               <span class={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full border ${getStatusColor(enrollment.status)}`}>
@@ -579,7 +634,7 @@
             <div class="flex items-center gap-2 mt-3 ml-7">
               {#if onView}
                 <button
-                  onclick={() => onView(enrollment)}
+                  onclick={() => handleView(enrollment)}
                   class="text-xs text-blue-600 hover:text-blue-900"
                 >
                   View

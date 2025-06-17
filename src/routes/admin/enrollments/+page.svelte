@@ -7,9 +7,11 @@
   import EnrollmentTable from '$lib/components/admin/EnrollmentTable.svelte';
   import EnrollmentDetail from '$lib/components/admin/EnrollmentDetail.svelte';
   import { enrollmentOpsEnhanced } from '$lib/firebase/firestore';
-  import { exportToPDF } from '$lib/utils/exporters';
+  import { exportToPDF, exportToCSV } from '$lib/utils/exporters';
   import { enrollmentSettings } from '$lib/stores/enrollment';
   import { CachedStorage } from '$lib/utils/helpers';
+  import { decryptEnrollmentData, canDecrypt, isEncryptionConfigured } from '$lib/utils/encryption';
+  import { user } from '$lib/stores/auth';
   import type { Enrollment, EnrollmentStatus } from '$lib/types';
   
   // State
@@ -37,6 +39,8 @@
   let rejectionReason = $state('');
   let enrollmentToReject = $state<string | null>(null);
   let isUpdating = $state(false);
+  // Only show warning if encryption is not configured AND we're in development
+  let encryptionWarning = $state(!isEncryptionConfigured() && import.meta.env.DEV);
   
   // Filters
   let filters = $state({
@@ -52,13 +56,15 @@
   // Track if component is mounted
   let isMounted = false;
   
+  // Check if user can decrypt
+  const userCanDecrypt = $derived(() => canDecrypt($user?.role));
+  
   // Load stats with caching
   async function loadStats(forceRefresh = false) {
-    if (!isMounted) return; // Don't load if not mounted
+    if (!isMounted) return;
     
     const cacheKey = `${filters.schoolYear}_stats`;
     
-    // If force refresh, skip cache
     if (!forceRefresh) {
       const cached = statsCache.get<typeof stats>(cacheKey);
       
@@ -70,7 +76,7 @@
         enrollmentOpsEnhanced.getStats(filters.schoolYear).then((newStats: typeof stats) => {
           if (isMounted) {
             stats = newStats;
-            statsCache.set(cacheKey, newStats, 5); // Cache for 5 minutes
+            statsCache.set(cacheKey, newStats, 5);
           }
         });
         return;
@@ -91,7 +97,6 @@
   // Clear cache function
   function clearCache() {
     statsCache.clear();
-    // Also clear any other caches if needed
     console.log('Cache cleared successfully');
   }
   
@@ -110,7 +115,7 @@
       
       // Clear cache and reload stats
       statsCache.clear();
-      await loadStats(true); // Force refresh
+      await loadStats(true);
       
       // Close modals
       showRejectModal = false;
@@ -130,10 +135,14 @@
   
   // Delete enrollment
   async function deleteEnrollment(id: string) {
+    if (!confirm('Are you sure you want to delete this enrollment? This action cannot be undone.')) {
+      return;
+    }
+    
     try {
       await enrollmentOpsEnhanced.delete(id);
       statsCache.clear();
-      await loadStats(true); // Force refresh
+      await loadStats(true);
       
       if (selectedEnrollment?.id === id) {
         selectedEnrollment = null;
@@ -144,9 +153,48 @@
     }
   }
   
-  // View enrollment details
+  // View enrollment details (with decryption)
   async function viewEnrollmentDetails(enrollment: Enrollment) {
-    selectedEnrollment = enrollment;
+    if (userCanDecrypt() && enrollment._encrypted) {
+      // Decrypt the enrollment data before displaying
+      const decrypted = decryptEnrollmentData(enrollment);
+      selectedEnrollment = decrypted;
+    } else {
+      selectedEnrollment = enrollment;
+    }
+  }
+  
+  // Export enrollments with decryption
+  async function exportEnrollments() {
+    try {
+      const result = await enrollmentOpsEnhanced.getPaginated({
+        pageSize: 1000,
+        filters: {
+          status: filters.status !== 'all' ? filters.status : undefined,
+          type: filters.type !== 'all' ? filters.type : undefined,
+          schoolYear: filters.schoolYear
+        }
+      });
+      
+      // Handle different possible response structures
+      let enrollments: Enrollment[] = [];
+      if (Array.isArray(result)) {
+        enrollments = result;
+      } else if (result && typeof result === 'object') {
+        enrollments = (result as any).items || (result as any).data || (result as any).enrollments || [];
+      }
+      
+      // Decrypt enrollments if user has permission
+      const exportData = userCanDecrypt() 
+        ? enrollments.map((e: Enrollment) => e._encrypted ? decryptEnrollmentData(e) : e)
+        : enrollments;
+      
+      const filename = `enrollments-${filters.schoolYear}-${new Date().toISOString().split('T')[0]}.csv`;
+      exportToCSV(exportData, filename);
+    } catch (error) {
+      console.error('Error exporting enrollments:', error);
+      alert('Failed to export enrollments');
+    }
   }
   
   // Reject enrollment
@@ -200,6 +248,25 @@
 </svelte:head>
 
 <div class="p-4 sm:p-6 space-y-4 sm:space-y-6">
+  <!-- Encryption Warning -->
+  {#if encryptionWarning}
+    <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4" role="alert">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <h3 class="text-sm font-medium text-yellow-800">Encryption Not Configured</h3>
+          <p class="mt-1 text-sm text-yellow-700">
+            The encryption key is not properly configured. Please set the VITE_ENCRYPTION_KEY environment variable.
+          </p>
+        </div>
+      </div>
+    </div>
+  {/if}
+  
   <!-- Header -->
   <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <div>
@@ -207,6 +274,14 @@
       <p class="text-sm sm:text-base text-gray-600 mt-1">
         Manage applications for {$enrollmentSettings.schoolYear}
       </p>
+      {#if userCanDecrypt()}
+        <p class="text-xs text-green-600 mt-1 flex items-center">
+          <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          Decryption enabled
+        </p>
+      {/if}
     </div>
     <div class="flex gap-2">
       <Button variant="outline" onclick={clearCache}>
@@ -215,11 +290,17 @@
         </svg>
         Clear Cache
       </Button>
+      <Button variant="outline" onclick={exportEnrollments}>
+        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+        </svg>
+        Export
+      </Button>
       <Button variant="primary" onclick={() => loadStats(true)} loading={loadingStats}>
         <svg class={`w-4 h-4 mr-1.5 ${loadingStats ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
-        Refresh Stats
+        Refresh
       </Button>
     </div>
   </div>
@@ -377,7 +458,26 @@
     </div>
   </Card>
   
-  <!-- Enrollments Table -->
+  <!-- Privacy Notice -->
+  {#if userCanDecrypt()}
+    <Card class="bg-blue-50 border-blue-200 p-4">
+      <div class="flex">
+        <div class="flex-shrink-0">
+          <svg class="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M2.166 4.999A11.954 11.954 0 0010 1.944 11.954 11.954 0 0017.834 5c.11.65.166 1.32.166 2.001 0 5.225-3.34 9.67-8 11.317C5.34 16.67 2 12.225 2 7c0-.682.057-1.35.166-2.001zm11.541 3.708a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+        </div>
+        <div class="ml-3">
+          <p class="text-sm text-blue-800">
+            <strong>Privacy Notice:</strong> Enrollment data is encrypted in the database. You are viewing decrypted data. 
+            Handle this information with care and ensure you're in a secure environment.
+          </p>
+        </div>
+      </div>
+    </Card>
+  {/if}
+  
+  <!-- Enrollments Table with Decryption Support -->
   <EnrollmentTable
     {filters}
     onStatusChange={updateStatus}
