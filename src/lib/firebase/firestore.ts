@@ -784,18 +784,11 @@ export const enrollmentOpsEnhanced = {
           updatedAt: convertTimestamp(data.updatedAt)
         } as Enrollment;
         
-        // Search in multiple fields, including encrypted search hash if available
-        const searchableFields = [
-          enrollment.fullName?.toLowerCase() || '',
-          enrollment.lrn || '',
-          enrollment.userEmail?.toLowerCase() || '',
-          enrollment.contactNumber || '',
-          enrollment._searchHash || ''
-        ];
+        // UPDATED: Only search in the fullName field
+        const fullNameLower = enrollment.fullName?.toLowerCase() || '';
         
-        const matches = searchableFields.some(field => 
-          field.includes(searchLower) || field.includes(searchTerm)
-        );
+        // Check if the name contains the search term
+        const matches = fullNameLower.includes(searchLower);
         
         if (matches) {
           results.push(enrollment);
@@ -804,13 +797,19 @@ export const enrollmentOpsEnhanced = {
       
       // Sort by relevance (exact matches first)
       results.sort((a, b) => {
-        const aExact = a.fullName?.toLowerCase() === searchLower || a.lrn === searchTerm;
-        const bExact = b.fullName?.toLowerCase() === searchLower || b.lrn === searchTerm;
+        const aExact = a.fullName?.toLowerCase() === searchLower;
+        const bExact = b.fullName?.toLowerCase() === searchLower;
         
         if (aExact && !bExact) return -1;
         if (!aExact && bExact) return 1;
         
-        // Then sort by submission date
+        // Then sort by how early the search term appears in the name
+        const aIndex = a.fullName?.toLowerCase().indexOf(searchLower) ?? 999;
+        const bIndex = b.fullName?.toLowerCase().indexOf(searchLower) ?? 999;
+        
+        if (aIndex !== bIndex) return aIndex - bIndex;
+        
+        // Finally sort by submission date
         return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
       });
       

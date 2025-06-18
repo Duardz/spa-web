@@ -412,7 +412,7 @@
           <input
             type="text"
             bind:value={searchInput}
-            placeholder="Search by name, LRN, email..."
+            placeholder="Search by name..."
             class="w-full sm:w-80 pl-9 pr-10 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
             aria-label="Search enrollments"
           />
