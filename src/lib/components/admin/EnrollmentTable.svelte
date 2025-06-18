@@ -1,14 +1,16 @@
+<!-- src/lib/components/admin/EnrollmentTable.svelte -->
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
   import Button from '../ui/Button.svelte';
   import LoadingSpinner from '../ui/LoadingSpinner.svelte';
   import type { Enrollment, EnrollmentStatus } from '$lib/types';
-  import type { DocumentSnapshot } from 'firebase/firestore';
+  import type { DocumentSnapshot, Unsubscribe } from 'firebase/firestore';
   import { enrollmentOpsEnhanced } from '$lib/firebase/firestore';
   import { exportToCSV, exportToPDF } from '$lib/utils/exporters';
   import { debounce } from '$lib/utils/helpers';
   import { decryptEnrollmentData, canDecrypt } from '$lib/utils/encryption';
   import { user } from '$lib/stores/auth';
+  import { fade, slide } from 'svelte/transition';
   
   interface Props {
     filters?: {
@@ -47,6 +49,13 @@
   let searchInput = $state('');
   let searchResults = $state<Enrollment[]>([]);
   let isSearching = $state(false);
+  let searchError = $state('');
+  
+  // Real-time updates
+  let realtimeListener: Unsubscribe | null = null;
+  let hasNewEnrollments = $state(false);
+  let newEnrollmentCount = $state(0);
+  let lastFetchTime = $state(Date.now());
   
   // Check if user can decrypt
   const userCanDecrypt = $derived(() => canDecrypt($user?.role));
@@ -55,7 +64,7 @@
   let observerTarget: HTMLDivElement;
   let observer: IntersectionObserver;
   
-  // Computed values - Fixed version
+  // Computed values
   const displayedData = $derived(searchInput ? searchResults : enrollments);
   const showingCount = $derived(displayedData.length);
   
@@ -77,27 +86,37 @@
     return '••••••••••••';
   }
   
-  // Debounced search
+  // Enhanced search with better error handling
   const searchEnrollments = debounce(async (term: string) => {
     if (!term || term.length < 2) {
       searchResults = [];
       isSearching = false;
+      searchError = '';
       return;
     }
     
     isSearching = true;
+    searchError = '';
+    
     try {
       const results = await enrollmentOpsEnhanced.search(term, {
         filters: {
           status: filters.status !== 'all' ? filters.status as EnrollmentStatus : undefined,
           type: filters.type !== 'all' ? filters.type as 'junior' | 'senior' : undefined,
           schoolYear: filters.schoolYear
-        }
+        },
+        pageSize: 50 // Increase search results
       });
+      
       searchResults = results;
+      
+      if (results.length === 0) {
+        searchError = 'No results found. Try different search terms.';
+      }
     } catch (error) {
       console.error('Search error:', error);
       searchResults = [];
+      searchError = 'Search failed. Please try again.';
     } finally {
       isSearching = false;
     }
@@ -129,6 +148,8 @@
       if (reset) {
         enrollments = result.data;
         currentPage = 1;
+        hasNewEnrollments = false;
+        newEnrollmentCount = 0;
       } else {
         enrollments = [...enrollments, ...result.data];
       }
@@ -136,6 +157,7 @@
       hasMore = result.hasMore;
       lastDoc = result.lastDoc;
       firstDoc = result.firstDoc;
+      lastFetchTime = Date.now();
       
       // Prefetch next page for smoother experience
       if (hasMore && lastDoc) {
@@ -147,6 +169,48 @@
       loading = false;
       loadingMore = false;
     }
+  }
+  
+  // Setup real-time listener
+  function setupRealtimeListener() {
+    // Clean up existing listener
+    if (realtimeListener) {
+      realtimeListener();
+      realtimeListener = null;
+    }
+    
+    const listenFilters = {
+      status: filters.status !== 'all' ? filters.status as EnrollmentStatus : undefined,
+      type: filters.type !== 'all' ? filters.type as 'junior' | 'senior' : undefined,
+      schoolYear: filters.schoolYear
+    };
+    
+    realtimeListener = enrollmentOpsEnhanced.listenToEnrollments(
+      listenFilters,
+      (realtimeEnrollments) => {
+        // Check for new enrollments
+        const currentIds = new Set(enrollments.map(e => e.id));
+        const newEnrollments = realtimeEnrollments.filter(e => 
+          !currentIds.has(e.id) && new Date(e.submittedAt).getTime() > lastFetchTime
+        );
+        
+        if (newEnrollments.length > 0) {
+          hasNewEnrollments = true;
+          newEnrollmentCount = newEnrollments.length;
+        }
+        
+        // Update existing enrollments if their status changed
+        enrollments = enrollments.map(enrollment => {
+          const updated = realtimeEnrollments.find(e => e.id === enrollment.id);
+          return updated || enrollment;
+        });
+      }
+    );
+  }
+  
+  // Load new enrollments when notification is clicked
+  function loadNewEnrollments() {
+    loadEnrollments(true);
   }
   
   // Load total count
@@ -242,6 +306,14 @@
     }
   }
   
+  // Clear search
+  function clearSearch() {
+    searchInput = '';
+    searchResults = [];
+    searchError = '';
+    isSearching = false;
+  }
+  
   // Watch for filter changes
   let previousFilters = JSON.stringify(filters);
   $effect(() => {
@@ -255,6 +327,7 @@
       currentPage = 1;
       loadEnrollments(true);
       loadTotalCount();
+      setupRealtimeListener();
     }
   });
   
@@ -281,16 +354,47 @@
     // Initial load
     loadEnrollments(true);
     loadTotalCount();
+    setupRealtimeListener();
   });
   
   onDestroy(() => {
     if (observer) {
       observer.disconnect();
     }
+    if (realtimeListener) {
+      realtimeListener();
+    }
+    // Clean up all listeners
+    enrollmentOpsEnhanced.cleanupListeners();
   });
 </script>
 
 <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+  <!-- New enrollments notification -->
+  {#if hasNewEnrollments}
+    <!-- svelte-ignore a11y_click_events_have_key_events -->
+    <!-- svelte-ignore a11y_no_static_element_interactions -->
+    <div 
+      class="bg-blue-50 border-b border-blue-200 px-4 py-2 cursor-pointer hover:bg-blue-100 transition-colors"
+      onclick={loadNewEnrollments}
+      transition:slide
+    >
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+          </svg>
+          <span class="text-sm font-medium text-blue-800">
+            {newEnrollmentCount} new enrollment{newEnrollmentCount > 1 ? 's' : ''} available
+          </span>
+        </div>
+        <button class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+          Click to refresh
+        </button>
+      </div>
+    </div>
+  {/if}
+
   <!-- Header with stats - Mobile responsive -->
   <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gray-50">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -303,13 +407,14 @@
       </div>
       
       <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
-        <!-- Search - Full width on mobile -->
+        <!-- Enhanced Search -->
         <div class="relative">
           <input
             type="text"
             bind:value={searchInput}
-            placeholder="Search..."
-            class="w-full sm:w-64 pl-9 pr-3 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+            placeholder="Search by name, LRN, email..."
+            class="w-full sm:w-80 pl-9 pr-10 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
+            aria-label="Search enrollments"
           />
           <svg class="absolute left-2.5 top-2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -318,6 +423,16 @@
             <div class="absolute right-2 top-2">
               <LoadingSpinner size="sm" />
             </div>
+          {:else if searchInput}
+            <button
+              onclick={clearSearch}
+              class="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+              aria-label="Clear search"
+            >
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
           {/if}
         </div>
         
@@ -366,6 +481,12 @@
         </div>
       </div>
     </div>
+    
+    {#if searchError}
+      <div class="mt-2 text-sm text-red-600" transition:fade>
+        {searchError}
+      </div>
+    {/if}
   </div>
   
   <!-- Table - Desktop -->

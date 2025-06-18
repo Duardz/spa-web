@@ -1,4 +1,6 @@
-// This should replace your existing firestore.ts file
+// src/lib/firebase/firestore.ts
+// Complete enhanced version with real-time listeners and improved search
+
 import {
   collection,
   doc,
@@ -22,7 +24,9 @@ import {
   Timestamp,
   writeBatch,
   getCountFromServer,
-  type QueryDocumentSnapshot
+  type QueryDocumentSnapshot,
+  onSnapshot,
+  type Unsubscribe
 } from 'firebase/firestore';
 import { db } from './config';
 import type { Enrollment, Teacher, NewsPost, EnrollmentStatus } from '$lib/types';
@@ -102,6 +106,13 @@ export interface PaginatedResult<T> {
   lastDoc: DocumentSnapshot | null;
   firstDoc: DocumentSnapshot | null;
 }
+
+// Real-time listener callback type
+export type EnrollmentChangeCallback = (enrollments: Enrollment[]) => void;
+export type StatsChangeCallback = (stats: any) => void;
+
+// Store active listeners
+const activeListeners = new Map<string, Unsubscribe>();
 
 // Original enrollment operations (kept for backward compatibility)
 export const enrollmentOps = {
@@ -484,7 +495,7 @@ export const enrollmentOps = {
   }
 };
 
-// Enhanced enrollment operations with pagination
+// Enhanced enrollment operations with pagination and real-time updates
 export const enrollmentOpsEnhanced = {
   // Get paginated enrollments with caching
   async getPaginated(options: {
@@ -593,6 +604,229 @@ export const enrollmentOpsEnhanced = {
     }
   },
 
+  // Listen to real-time enrollment changes
+  listenToEnrollments(
+    filters: {
+      status?: EnrollmentStatus;
+      type?: 'junior' | 'senior';
+      schoolYear?: string;
+    },
+    callback: EnrollmentChangeCallback
+  ): Unsubscribe {
+    const listenerId = `enrollments-${JSON.stringify(filters)}`;
+    
+    // Remove existing listener if any
+    if (activeListeners.has(listenerId)) {
+      activeListeners.get(listenerId)!();
+      activeListeners.delete(listenerId);
+    }
+
+    const constraints: QueryConstraint[] = [];
+
+    // Add filters
+    if (filters.status) {
+      constraints.push(where('status', '==', filters.status));
+    }
+    if (filters.type) {
+      constraints.push(where('type', '==', filters.type));
+    }
+    if (filters.schoolYear) {
+      constraints.push(where('schoolYear', '==', filters.schoolYear));
+    }
+
+    // Add ordering
+    constraints.push(orderBy('submittedAt', 'desc'));
+
+    const q = query(collection(db, 'enrollments'), ...constraints);
+
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const enrollments: Enrollment[] = [];
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          const enrollment = {
+            ...data,
+            id: doc.id,
+            submittedAt: convertTimestamp(data.submittedAt),
+            updatedAt: convertTimestamp(data.updatedAt)
+          } as Enrollment;
+          enrollments.push(enrollment);
+          cache.set(doc.id, enrollment);
+        });
+        callback(enrollments);
+      },
+      (error) => {
+        console.error('Error listening to enrollments:', error);
+      }
+    );
+
+    activeListeners.set(listenerId, unsubscribe);
+    return unsubscribe;
+  },
+
+  // Listen to real-time stats changes
+  listenToStats(
+    schoolYear: string,
+    callback: StatsChangeCallback
+  ): Unsubscribe {
+    const listenerId = `stats-${schoolYear}`;
+    
+    // Remove existing listener if any
+    if (activeListeners.has(listenerId)) {
+      activeListeners.get(listenerId)!();
+      activeListeners.delete(listenerId);
+    }
+
+    const constraints: QueryConstraint[] = [];
+    if (schoolYear) {
+      constraints.push(where('schoolYear', '==', schoolYear));
+    }
+
+    const q = query(collection(db, 'enrollments'), ...constraints);
+
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        const now = new Date();
+        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        
+        const stats = {
+          total: 0,
+          byStatus: {
+            submitted: 0,
+            verified: 0,
+            printed: 0,
+            rejected: 0,
+            archived: 0
+          },
+          byType: { junior: 0, senior: 0 },
+          recent: 0
+        };
+
+        snapshot.docs.forEach(doc => {
+          const enrollment = doc.data() as Enrollment;
+          stats.total++;
+          
+          // Status counts
+          if (stats.byStatus[enrollment.status] !== undefined) {
+            stats.byStatus[enrollment.status]++;
+          }
+          
+          // Type counts
+          if (enrollment.type === 'junior') {
+            stats.byType.junior++;
+          } else {
+            stats.byType.senior++;
+          }
+          
+          // Recent count
+          const submittedDate = convertTimestamp(enrollment.submittedAt);
+          if (submittedDate >= weekAgo) {
+            stats.recent++;
+          }
+        });
+
+        callback(stats);
+      },
+      (error) => {
+        console.error('Error listening to stats:', error);
+      }
+    );
+
+    activeListeners.set(listenerId, unsubscribe);
+    return unsubscribe;
+  },
+
+  // Improved search function
+  async search(searchTerm: string, options: {
+    pageSize?: number;
+    filters?: {
+      status?: EnrollmentStatus;
+      type?: 'junior' | 'senior';
+      schoolYear?: string;
+    };
+  }): Promise<Enrollment[]> {
+    if (!searchTerm || searchTerm.length < 2) {
+      return [];
+    }
+
+    const { pageSize = 20, filters = {} } = options;
+    
+    try {
+      // For search, we need to fetch more documents and filter in memory
+      const constraints: QueryConstraint[] = [];
+      
+      if (filters.status) {
+        constraints.push(where('status', '==', filters.status));
+      }
+      if (filters.type) {
+        constraints.push(where('type', '==', filters.type));
+      }
+      if (filters.schoolYear) {
+        constraints.push(where('schoolYear', '==', filters.schoolYear));
+      }
+      
+      // Fetch more documents for better search results
+      constraints.push(limit(200));
+      
+      const q = query(collection(db, 'enrollments'), ...constraints);
+      const snapshot = await getDocs(q);
+      
+      const searchLower = searchTerm.toLowerCase();
+      const results: Enrollment[] = [];
+      
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const enrollment = {
+          ...data,
+          id: doc.id,
+          submittedAt: convertTimestamp(data.submittedAt),
+          updatedAt: convertTimestamp(data.updatedAt)
+        } as Enrollment;
+        
+        // Search in multiple fields, including encrypted search hash if available
+        const searchableFields = [
+          enrollment.fullName?.toLowerCase() || '',
+          enrollment.lrn || '',
+          enrollment.userEmail?.toLowerCase() || '',
+          enrollment.contactNumber || '',
+          enrollment._searchHash || ''
+        ];
+        
+        const matches = searchableFields.some(field => 
+          field.includes(searchLower) || field.includes(searchTerm)
+        );
+        
+        if (matches) {
+          results.push(enrollment);
+        }
+      });
+      
+      // Sort by relevance (exact matches first)
+      results.sort((a, b) => {
+        const aExact = a.fullName?.toLowerCase() === searchLower || a.lrn === searchTerm;
+        const bExact = b.fullName?.toLowerCase() === searchLower || b.lrn === searchTerm;
+        
+        if (aExact && !bExact) return -1;
+        if (!aExact && bExact) return 1;
+        
+        // Then sort by submission date
+        return new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime();
+      });
+      
+      return results.slice(0, pageSize);
+    } catch (error) {
+      console.error('Error searching enrollments:', error);
+      return [];
+    }
+  },
+
+  // Clean up all listeners
+  cleanupListeners(): void {
+    activeListeners.forEach(unsubscribe => unsubscribe());
+    activeListeners.clear();
+  },
+
   // Get total count (cached for performance)
   async getCount(filters?: {
     status?: EnrollmentStatus;
@@ -622,71 +856,6 @@ export const enrollmentOpsEnhanced = {
       const q = query(collection(db, 'enrollments'));
       const snapshot = await getDocs(q);
       return snapshot.size;
-    }
-  },
-
-  // Search enrollments with debouncing
-  async search(searchTerm: string, options: {
-    pageSize?: number;
-    filters?: {
-      status?: EnrollmentStatus;
-      type?: 'junior' | 'senior';
-      schoolYear?: string;
-    };
-  }): Promise<Enrollment[]> {
-    if (!searchTerm || searchTerm.length < 2) {
-      return [];
-    }
-
-    const { pageSize = 10, filters = {} } = options;
-    
-    try {
-      // For search, we need to fetch more documents and filter in memory
-      // Firestore doesn't support full-text search natively
-      const constraints: QueryConstraint[] = [];
-      
-      if (filters.status) {
-        constraints.push(where('status', '==', filters.status));
-      }
-      if (filters.type) {
-        constraints.push(where('type', '==', filters.type));
-      }
-      if (filters.schoolYear) {
-        constraints.push(where('schoolYear', '==', filters.schoolYear));
-      }
-      
-      constraints.push(limit(100)); // Fetch up to 100 for search
-      
-      const q = query(collection(db, 'enrollments'), ...constraints);
-      const snapshot = await getDocs(q);
-      
-      const searchLower = searchTerm.toLowerCase();
-      const results: Enrollment[] = [];
-      
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const enrollment = {
-          ...data,
-          id: doc.id,
-          submittedAt: convertTimestamp(data.submittedAt),
-          updatedAt: convertTimestamp(data.updatedAt)
-        } as Enrollment;
-        
-        // Search in multiple fields
-        if (
-          enrollment.fullName.toLowerCase().includes(searchLower) ||
-          enrollment.lrn.includes(searchTerm) ||
-          enrollment.userEmail.toLowerCase().includes(searchLower) ||
-          enrollment.contactNumber.includes(searchTerm)
-        ) {
-          results.push(enrollment);
-        }
-      });
-      
-      return results.slice(0, pageSize);
-    } catch (error) {
-      console.error('Error searching enrollments:', error);
-      return [];
     }
   },
 
@@ -803,25 +972,21 @@ export const enrollmentOpsEnhanced = {
   }
 };
 
-// Teacher operations
+// Teacher operations (keeping existing implementation)
 export const teacherOps = {
-  // Create teacher
   async create(teacher: Omit<Teacher, 'id'>): Promise<string> {
     const docRef = await addDoc(collection(db, 'teachers'), teacher);
     return docRef.id;
   },
 
-  // Update teacher
   async update(id: string, data: Partial<Teacher>): Promise<void> {
     await updateDoc(doc(db, 'teachers', id), data);
   },
 
-  // Delete teacher
   async delete(id: string): Promise<void> {
     await deleteDoc(doc(db, 'teachers', id));
   },
 
-  // Get all teachers
   async getAll(): Promise<Teacher[]> {
     const q = query(collection(db, 'teachers'), orderBy('order', 'asc'));
     const snapshot = await getDocs(q);
@@ -831,7 +996,6 @@ export const teacherOps = {
     })) as Teacher[];
   },
 
-  // Get teacher by ID
   async getById(id: string): Promise<Teacher | null> {
     const docSnap = await getDoc(doc(db, 'teachers', id));
     if (docSnap.exists()) {
@@ -841,9 +1005,8 @@ export const teacherOps = {
   }
 };
 
-// News operations
+// News operations (keeping existing implementation)
 export const newsOps = {
-  // Create news post
   async create(post: Omit<NewsPost, 'id'>): Promise<string> {
     const docRef = await addDoc(collection(db, 'news'), {
       ...post,
@@ -853,7 +1016,6 @@ export const newsOps = {
     return docRef.id;
   },
 
-  // Update news post
   async update(id: string, data: Partial<NewsPost>): Promise<void> {
     await updateDoc(doc(db, 'news', id), {
       ...data,
@@ -861,12 +1023,10 @@ export const newsOps = {
     });
   },
 
-  // Delete news post
   async delete(id: string): Promise<void> {
     await deleteDoc(doc(db, 'news', id));
   },
 
-  // Get published news
   async getPublished(limitCount = 10): Promise<NewsPost[]> {
     try {
       console.log('Querying published news with limit:', limitCount);
@@ -889,7 +1049,6 @@ export const newsOps = {
       return posts;
     } catch (error) {
       console.error('Error fetching published news:', error);
-      // If the query fails (likely due to missing index), try without ordering
       try {
         console.log('Retrying without ordering...');
         const q = query(
@@ -905,7 +1064,6 @@ export const newsOps = {
           updatedAt: convertTimestamp(doc.data().updatedAt)
         })) as NewsPost[];
         
-        // Sort manually
         return posts.sort((a, b) => 
           new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
         );
@@ -916,7 +1074,6 @@ export const newsOps = {
     }
   },
 
-  // Get all news (admin)
   async getAll(): Promise<NewsPost[]> {
     try {
       const q = query(collection(db, 'news'), orderBy('publishedAt', 'desc'));
@@ -929,7 +1086,6 @@ export const newsOps = {
       })) as NewsPost[];
     } catch (error) {
       console.error('Error fetching all news:', error);
-      // Fallback without ordering
       const snapshot = await getDocs(collection(db, 'news'));
       const posts = snapshot.docs.map(doc => ({
         ...doc.data(),
@@ -938,14 +1094,12 @@ export const newsOps = {
         updatedAt: convertTimestamp(doc.data().updatedAt)
       })) as NewsPost[];
       
-      // Sort manually
       return posts.sort((a, b) => 
         new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime()
       );
     }
   },
 
-  // Get news by ID
   async getById(id: string): Promise<NewsPost | null> {
     const docSnap = await getDoc(doc(db, 'news', id));
     if (docSnap.exists()) {
