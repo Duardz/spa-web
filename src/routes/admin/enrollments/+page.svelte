@@ -100,16 +100,22 @@
   
   // Update enrollment status
   async function updateStatus(id: string, status: EnrollmentStatus, reason?: string) {
+    // For rejection, check if we need to show the modal first
+    if (status === 'rejected' && !reason) {
+      openRejectModal(id);
+      return;
+    }
+    
     try {
       isUpdating = true;
-      await enrollmentOpsEnhanced.updateStatus(id, status);
       
+      // Update both status and rejection reason in a single call
+      const updateData: any = { status };
       if (status === 'rejected' && reason) {
-        await enrollmentOpsEnhanced.batchUpdate([{
-          id,
-          data: { rejectionReason: reason }
-        }]);
+        updateData.rejectionReason = reason;
       }
+      
+      await enrollmentOpsEnhanced.update(id, updateData);
       
       // Clear cache and reload stats
       statsCache.clear();
