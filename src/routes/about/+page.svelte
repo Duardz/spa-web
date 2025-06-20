@@ -28,16 +28,16 @@
   // Leadership data
   const leadership = [
     {
-      name: "GLORIA C. ABAT",
-      position: "Junior High School Principal",
-      description: "Leading our Junior High School with dedication and vision",
+      name: "LEAH MAY B. UNAJAN",
+      position: "Senior High School Principal", 
+      description: "Guiding our School towards academic excellence",
       image: null
     },
     {
-      name: "LEAH MAY B. UNAJAN",
-      position: "Senior High School Principal", 
-      description: "Guiding our Senior High School towards academic excellence",
-      image: null
+      "name": "GLORIA C. ABAT",
+      "position": "School Treasurer",
+      "description": "Ensuring financial integrity and supporting quality education at Saint Patrick's Academy.",
+      "image": null
     }
   ];
   
