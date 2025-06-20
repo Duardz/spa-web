@@ -1,3 +1,4 @@
+<!-- src/routes/admin/enrollments/+page.svelte -->
 <script lang="ts">
   import { onMount } from 'svelte';
   import { page } from '$app/stores';
@@ -39,6 +40,9 @@
   let rejectionReason = $state('');
   let enrollmentToReject = $state<string | null>(null);
   let isUpdating = $state(false);
+  
+  // Real-time stats listener
+  let statsListener: any = null;
   
   // Filters
   let filters = $state({
@@ -127,7 +131,8 @@
       enrollmentToReject = null;
       
       if (selectedEnrollment?.id === id) {
-        selectedEnrollment = null;
+        // Update the selected enrollment with new status
+        selectedEnrollment = { ...selectedEnrollment, status, ...(reason ? { rejectionReason: reason } : {}) };
       }
     } catch (error) {
       console.error('Error updating status:', error);
@@ -240,9 +245,20 @@
     // Load initial stats
     loadStats();
     
+    // Set up periodic refresh for stats (every 30 seconds)
+    const statsInterval = setInterval(() => {
+      if (isMounted && !loadingStats) {
+        loadStats(true);
+      }
+    }, 30000);
+    
     // Cleanup
     return () => {
       isMounted = false;
+      clearInterval(statsInterval);
+      if (statsListener) {
+        statsListener();
+      }
     };
   });
 </script>

@@ -65,8 +65,13 @@
   let observer: IntersectionObserver;
   
   // Computed values
-  const displayedData = $derived(searchInput ? searchResults : enrollments);
-  const showingCount = $derived(displayedData.length);
+  const displayedData = $derived(() => {
+    if (searchInput && searchInput.length >= 2) {
+      return searchResults;
+    }
+    return enrollments;
+  });
+  const showingCount = $derived(() => displayedData().length);
   
   // Helper function to display name
   function displayName(enrollment: Enrollment): string {
@@ -99,19 +104,42 @@
     searchError = '';
     
     try {
-      const results = await enrollmentOpsEnhanced.search(term, {
-        filters: {
-          status: filters.status !== 'all' ? filters.status as EnrollmentStatus : undefined,
-          type: filters.type !== 'all' ? filters.type as 'junior' | 'senior' : undefined,
-          schoolYear: filters.schoolYear
-        },
-        pageSize: 50 // Increase search results
-      });
-      
-      searchResults = results;
-      
-      if (results.length === 0) {
-        searchError = 'No results found. Try different search terms.';
+      // If user cannot decrypt, search by non-encrypted fields only
+      if (!userCanDecrypt()) {
+        // Search by email or ID only (non-encrypted fields)
+        const searchLower = term.toLowerCase();
+        const filtered = enrollments.filter(enrollment => {
+          return (
+            enrollment.userEmail?.toLowerCase().includes(searchLower) ||
+            enrollment.id?.toLowerCase().includes(searchLower) ||
+            (enrollment.lrn && !enrollment._encrypted && enrollment.lrn.toLowerCase().includes(searchLower))
+          );
+        });
+        
+        searchResults = filtered;
+        
+        if (filtered.length === 0) {
+          searchError = 'No results found. Try searching by email address.';
+        }
+      } else {
+        // User can decrypt - search all fields including name
+        const searchLower = term.toLowerCase();
+        const filtered = enrollments.filter(enrollment => {
+          const data = enrollment._encrypted ? decryptEnrollmentData(enrollment) : enrollment;
+          
+          return (
+            data.fullName?.toLowerCase().includes(searchLower) ||
+            data.lrn?.toLowerCase().includes(searchLower) ||
+            data.userEmail?.toLowerCase().includes(searchLower) ||
+            data.contactNumber?.includes(term)
+          );
+        });
+        
+        searchResults = filtered;
+        
+        if (filtered.length === 0) {
+          searchError = 'No results found. Try different search terms.';
+        }
       }
     } catch (error) {
       console.error('Search error:', error);
@@ -127,7 +155,7 @@
     if (loading || (!hasMore && !reset)) return;
     
     // If searching, don't load paginated results
-    if (searchInput.length >= 2) return;
+    if (searchInput && searchInput.length >= 2) return;
     
     loading = !enrollments.length || reset;
     loadingMore = enrollments.length > 0 && !reset;
@@ -197,13 +225,30 @@
         if (newEnrollments.length > 0) {
           hasNewEnrollments = true;
           newEnrollmentCount = newEnrollments.length;
+          
+          // Auto-refresh after 5 seconds if no user interaction
+          setTimeout(() => {
+            if (hasNewEnrollments && !isSearching && !searchInput) {
+              loadNewEnrollments();
+            }
+          }, 5000);
         }
         
         // Update existing enrollments if their status changed
-        enrollments = enrollments.map(enrollment => {
+        const updatedEnrollments = enrollments.map(enrollment => {
           const updated = realtimeEnrollments.find(e => e.id === enrollment.id);
           return updated || enrollment;
         });
+        
+        // Check if any existing enrollments were actually updated
+        const hasUpdates = updatedEnrollments.some((updated, index) => {
+          const original = enrollments[index];
+          return JSON.stringify(updated) !== JSON.stringify(original);
+        });
+        
+        if (hasUpdates) {
+          enrollments = updatedEnrollments;
+        }
       }
     );
   }
@@ -249,7 +294,7 @@
   }
   
   function toggleSelectAll() {
-    const currentData = searchInput ? searchResults : enrollments;
+    const currentData = displayedData();
     if (selectedIds.size === currentData.length && currentData.length > 0) {
       selectedIds = new Set();
     } else {
@@ -259,7 +304,7 @@
   
   // Bulk actions
   async function handleBulkExport() {
-    const currentData = searchInput ? searchResults : enrollments;
+    const currentData = displayedData();
     const selected = currentData.filter(e => selectedIds.has(e.id!));
     
     if (selected.length === 0) return;
@@ -312,6 +357,10 @@
     searchResults = [];
     searchError = '';
     isSearching = false;
+    // Reload enrollments when clearing search
+    if (enrollments.length === 0) {
+      loadEnrollments(true);
+    }
   }
   
   // Watch for filter changes
@@ -375,21 +424,24 @@
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div 
-      class="bg-blue-50 border-b border-blue-200 px-4 py-2 cursor-pointer hover:bg-blue-100 transition-colors"
+      class="bg-blue-50 border-b border-blue-200 px-4 py-2 cursor-pointer hover:bg-blue-100 transition-colors animate-pulse-slow"
       onclick={loadNewEnrollments}
       transition:slide
     >
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg class="w-5 h-5 text-blue-600 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
           </svg>
           <span class="text-sm font-medium text-blue-800">
             {newEnrollmentCount} new enrollment{newEnrollmentCount > 1 ? 's' : ''} available
           </span>
         </div>
-        <button class="text-sm text-blue-600 hover:text-blue-800 font-medium">
+        <button class="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1">
           Click to refresh
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+          </svg>
         </button>
       </div>
     </div>
@@ -399,7 +451,7 @@
   <div class="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gray-50">
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div class="text-sm text-gray-700">
-        <span class="font-medium">{showingCount}</span> of 
+        <span class="font-medium">{showingCount()}</span> of 
         <span class="font-medium">{totalCount}</span> enrollments
         {#if selectedIds.size > 0}
           • <span class="font-medium text-blue-600">{selectedIds.size} selected</span>
@@ -412,7 +464,7 @@
           <input
             type="text"
             bind:value={searchInput}
-            placeholder="Search by name..."
+            placeholder={userCanDecrypt() ? "Search by name, LRN, email..." : "Search by email..."}
             class="w-full sm:w-80 pl-9 pr-10 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-green-500 focus:border-green-500"
             aria-label="Search enrollments"
           />
@@ -487,6 +539,15 @@
         {searchError}
       </div>
     {/if}
+    
+    {#if !userCanDecrypt() && searchInput && searchInput.length >= 2}
+      <div class="mt-2 text-sm text-amber-600" transition:fade>
+        <svg class="inline w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        Note: Name search is disabled due to encryption. You can only search by email address.
+      </div>
+    {/if}
   </div>
   
   <!-- Table - Desktop -->
@@ -497,7 +558,7 @@
           <th class="px-6 py-3 text-left">
             <input
               type="checkbox"
-              checked={selectedIds.size === displayedData.length && displayedData.length > 0}
+              checked={selectedIds.size === displayedData().length && displayedData().length > 0}
               onchange={toggleSelectAll}
               class="rounded border-gray-300 text-green-600 focus:ring-green-500"
               aria-label="Select all"
@@ -570,7 +631,7 @@
               <p class="mt-2 text-sm text-gray-500">Loading enrollments...</p>
             </td>
           </tr>
-        {:else if displayedData.length === 0}
+        {:else if displayedData().length === 0}
           <tr>
             <td colspan="6" class="px-6 py-12 text-center text-gray-500">
               {#if searchInput}
@@ -589,7 +650,7 @@
             </td>
           </tr>
         {:else}
-          {#each displayedData as enrollment}
+          {#each displayedData() as enrollment}
             <tr class="hover:bg-gray-50 transition-colors">
               <td class="px-6 py-4 whitespace-nowrap">
                 <input
@@ -700,7 +761,7 @@
         <LoadingSpinner size="lg" />
         <p class="mt-2 text-sm text-gray-500">Loading enrollments...</p>
       </div>
-    {:else if displayedData.length === 0}
+    {:else if displayedData().length === 0}
       <div class="p-8 text-center">
         {#if searchInput}
           <svg class="w-12 h-12 text-gray-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -718,7 +779,7 @@
       </div>
     {:else}
       <div class="divide-y divide-gray-200">
-        {#each displayedData as enrollment}
+        {#each displayedData() as enrollment}
           <div class="p-4 hover:bg-gray-50">
             <div class="flex items-start justify-between mb-2">
               <div class="flex items-center">
@@ -807,4 +868,26 @@
       No more enrollments to load
     </div>
   {/if}
+  
+  <!-- Search info -->
+  {#if searchInput && searchInput.length >= 2 && !isSearching && searchResults.length > 0}
+    <div class="px-6 py-4 text-center text-sm text-gray-500 border-t">
+      Showing {searchResults.length} search result{searchResults.length !== 1 ? 's' : ''}
+    </div>
+  {/if}
 </div>
+
+<style>
+  @keyframes pulse-slow {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.85;
+    }
+  }
+  
+  :global(.animate-pulse-slow) {
+    animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+</style>
