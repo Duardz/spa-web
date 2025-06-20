@@ -31,8 +31,7 @@ export function exportToCSV(enrollments: Enrollment[], filename: string = 'enrol
     'Mother Occupation',
     'ESC Grantee',
     'Academic Excellence',
-    'Academic Award',
-    'Documents'
+    'Academic Award'
   ];
 
   const rows = enrollments.map(enrollment => {
@@ -65,8 +64,7 @@ export function exportToCSV(enrollments: Enrollment[], filename: string = 'enrol
       enrollment.type === 'senior' ? (enrollment as SeniorHighEnrollment).motherOccupation : '',
       enrollment.type === 'senior' ? ((enrollment as SeniorHighEnrollment).isESCGrantee ? 'Yes' : 'No') : '',
       enrollment.type === 'junior' ? ((enrollment as JuniorHighEnrollment).hasAcademicExcellence ? 'Yes' : 'No') : '',
-      enrollment.type === 'senior' ? ((enrollment as SeniorHighEnrollment).hasAcademicAward ? 'Yes' : 'No') : '',
-      getDocumentsList(enrollment)
+      enrollment.type === 'senior' ? ((enrollment as SeniorHighEnrollment).hasAcademicAward ? 'Yes' : 'No') : ''
     ];
     
     return base.map(cell => `"${cell}"`).join(',');
@@ -81,31 +79,6 @@ export function exportToCSV(enrollments: Enrollment[], filename: string = 'enrol
   link.download = filename;
   link.click();
   URL.revokeObjectURL(link.href);
-}
-
-// Get documents list as string
-function getDocumentsList(enrollment: Enrollment): string {
-  const docs: string[] = [];
-  
-  if (enrollment.type === 'junior') {
-    const junior = enrollment as JuniorHighEnrollment;
-    if (junior.hasForm10) docs.push('Form 10');
-    if (junior.hasPSA) docs.push('PSA');
-    if (junior.hasBaptismal) docs.push('Baptismal');
-    if (junior.hasGoodMoral) docs.push('Good Moral');
-  } else {
-    const senior = enrollment as SeniorHighEnrollment;
-    if (senior.hasForm9) docs.push('Form 9');
-    if (senior.hasForm10) docs.push('Form 10');
-    if (senior.hasPSA) docs.push('PSA');
-    if (senior.hasMoral) docs.push('Good Moral');
-    if (senior.hasBaptismal) docs.push('Baptismal');
-    if (senior.hasCompletionCert) docs.push('Completion Certificate');
-    if (senior.hasESC) docs.push('ESC');
-    if (senior.hasNCAE) docs.push('NCAE');
-  }
-  
-  return docs.join(', ');
 }
 
 // PDF Export (using browser print)
@@ -260,7 +233,31 @@ function generatePrintHTML(enrollment: Enrollment): string {
   </div>
 
   <div class="documents">
-    <strong>Documents Submitted:</strong> ${getDocumentsList(enrollment)}
+    <strong>Phase 2 Requirements - Please bring the following documents to school:</strong>
+    <div style="margin-top: 10px; padding: 10px; background-color: #f3f4f6; border-radius: 5px;">
+      ${isJunior ? `
+        <ul style="list-style-type: disc; margin-left: 20px; line-height: 1.6;">
+          <li>School Form 10 (SF10) - Learner's permanent academic record</li>
+          <li>PSA Birth Certificate - Original or certified true copy</li>
+          <li>Certificate of Good Moral Character - From previous school</li>
+          <li>Baptismal Certificate - For Catholic students (optional)</li>
+        </ul>
+      ` : `
+        <ul style="list-style-type: disc; margin-left: 20px; line-height: 1.6;">
+          <li>School Form 9 (SF9) - Learner's progress report card</li>
+          <li>School Form 10 (SF10) - Learner's permanent academic record</li>
+          <li>PSA Birth Certificate - Original or certified true copy</li>
+          <li>Certificate of Good Moral Character - From previous school</li>
+          <li>JHS Completion Certificate - Proof of Junior High School completion</li>
+          <li>Baptismal Certificate - For Catholic students (optional)</li>
+          <li>ESC Certificate - If applicable</li>
+          <li>NCAE Result - National Career Assessment Examination (if available)</li>
+        </ul>
+      `}
+      <p style="margin-top: 10px; font-style: italic; color: #6b7280;">
+        Note: These documents must be submitted during the school visit to complete your enrollment.
+      </p>
+    </div>
   </div>
 
   <div class="signature-section">

@@ -5,7 +5,7 @@
   import Card from '../ui/Card.svelte';
   import { validateSeniorHighForm, calculateAge } from '$lib/utils/validators';
   import { sanitizeInput, RateLimiter } from '$lib/utils/security';
-  import type { SeniorHighEnrollment, ValidationError } from '$lib/types';
+  import type { SeniorHighEnrollment } from '$lib/types';
   import { onMount } from 'svelte';
   
   interface Props {
@@ -19,7 +19,7 @@
   const rateLimiter = new RateLimiter(3, 60000); // 3 attempts per minute
   
   let currentStep = $state(1);
-  const totalSteps = 5;
+  const totalSteps = 4; // Reduced from 5 to 4
   
   let formData = $state({
     gradeLevel: '11' as '11' | '12',
@@ -45,6 +45,7 @@
     generalAverage: 75,
     isTransferee: false,
     hasAcademicAward: false,
+    // Document fields - set to false by default, will be removed from form
     hasForm9: false,
     hasForm10: false,
     hasPSA: false,
@@ -167,15 +168,6 @@
           stepErrors.generalAverage = 'General average must be between 60 and 100';
         }
         break;
-        
-      case 5: // Documents
-        const hasAnyDocument = formData.hasForm9 || formData.hasForm10 || formData.hasPSA || 
-                              formData.hasMoral || formData.hasBaptismal || formData.hasCompletionCert || 
-                              formData.hasESC || formData.hasNCAE;
-        if (!hasAnyDocument) {
-          stepErrors.documents = 'Please select at least one document to submit';
-        }
-        break;
     }
     
     errors = { ...errors, ...stepErrors };
@@ -262,7 +254,6 @@
       case 2: return 'Personal Information';
       case 3: return 'Family Information';
       case 4: return 'Academic Background';
-      case 5: return 'Required Documents';
       default: return '';
     }
   }
@@ -272,8 +263,7 @@
     '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />',
     '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />',
     '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />',
-    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />',
-    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />'
+    '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />'
   ];
 </script>
 
@@ -350,8 +340,6 @@
         Contact information of parents and guardian
       {:else if currentStep === 4}
         Your previous academic records
-      {:else if currentStep === 5}
-        Select documents you will submit
       {/if}
     </p>
   </div>
@@ -773,171 +761,6 @@
             <div>
               <span class="text-sm font-medium text-gray-700">Academic Award Recipient</span>
               <p class="text-xs text-gray-500">With honors, awards, or recognition</p>
-            </div>
-          </label>
-        </div>
-      </div>
-      
-    {:else if currentStep === 5}
-      <!-- Required Documents -->
-      <div>
-        <p class="text-sm text-gray-600 mb-6">
-          Please check all documents you will submit during enrollment. At least one document is required.
-        </p>
-        
-        {#if errors.documents}
-          <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600 flex items-center">
-              <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-              </svg>
-              {errors.documents}
-            </p>
-          </div>
-        {/if}
-        
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <label class="flex items-start p-4 border-2 border-gray-200 rounded-lg hover:border-yellow-300 transition-all cursor-pointer group">
-            <input
-              type="checkbox"
-              bind:checked={formData.hasForm9}
-              disabled={disabled || isSubmitting}
-              class="rounded border-gray-300 text-yellow-600 focus:ring-yellow-500 mr-4 mt-1 h-5 w-5"
-            />
-            <div class="flex-1">
-              <div class="flex items-center">
-                <svg class="w-5 h-5 text-gray-400 mr-2 group-hover:text-yellow-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span class="font-medium text-gray-700">School Form 9 (SF9)</span>
-              </div>
-              <p class="text-xs text-gray-500 mt-1">Learner's progress report card</p>
-            </div>
-          </label>
-          
-          <label class="flex items-start p-4 border-2 border-gray-200 rounded-lg hover:border-yellow-300 transition-all cursor-pointer group">
-            <input
-              type="checkbox"
-              bind:checked={formData.hasForm10}
-              disabled={disabled || isSubmitting}
-              class="rounded border-gray-300 text-yellow-600 focus:ring-yellow-500 mr-4 mt-1 h-5 w-5"
-            />
-            <div class="flex-1">
-              <div class="flex items-center">
-                <svg class="w-5 h-5 text-gray-400 mr-2 group-hover:text-yellow-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span class="font-medium text-gray-700">School Form 10 (SF10)</span>
-              </div>
-              <p class="text-xs text-gray-500 mt-1">Learner's permanent academic record</p>
-            </div>
-          </label>
-          
-          <label class="flex items-start p-4 border-2 border-gray-200 rounded-lg hover:border-yellow-300 transition-all cursor-pointer group">
-            <input
-              type="checkbox"
-              bind:checked={formData.hasPSA}
-              disabled={disabled || isSubmitting}
-              class="rounded border-gray-300 text-yellow-600 focus:ring-yellow-500 mr-4 mt-1 h-5 w-5"
-            />
-            <div class="flex-1">
-              <div class="flex items-center">
-                <svg class="w-5 h-5 text-gray-400 mr-2 group-hover:text-yellow-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 114 0v1m-4 0a2 2 0 104 0m-5 8a2 2 0 100-4 2 2 0 000 4zm0 0c1.306 0 2.417.835 2.83 2M9 14a3.001 3.001 0 00-2.83 2M15 11h3m-3 4h2" />
-                </svg>
-                <span class="font-medium text-gray-700">PSA Birth Certificate</span>
-              </div>
-              <p class="text-xs text-gray-500 mt-1">Original or certified true copy</p>
-            </div>
-          </label>
-          
-          <label class="flex items-start p-4 border-2 border-gray-200 rounded-lg hover:border-yellow-300 transition-all cursor-pointer group">
-            <input
-              type="checkbox"
-              bind:checked={formData.hasMoral}
-              disabled={disabled || isSubmitting}
-              class="rounded border-gray-300 text-yellow-600 focus:ring-yellow-500 mr-4 mt-1 h-5 w-5"
-            />
-            <div class="flex-1">
-              <div class="flex items-center">
-                <svg class="w-5 h-5 text-gray-400 mr-2 group-hover:text-yellow-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
-                </svg>
-                <span class="font-medium text-gray-700">Certificate of Good Moral Character</span>
-              </div>
-              <p class="text-xs text-gray-500 mt-1">From previous school</p>
-            </div>
-          </label>
-          
-          <label class="flex items-start p-4 border-2 border-gray-200 rounded-lg hover:border-yellow-300 transition-all cursor-pointer group">
-            <input
-              type="checkbox"
-              bind:checked={formData.hasBaptismal}
-              disabled={disabled || isSubmitting}
-              class="rounded border-gray-300 text-yellow-600 focus:ring-yellow-500 mr-4 mt-1 h-5 w-5"
-            />
-            <div class="flex-1">
-              <div class="flex items-center">
-                <svg class="w-5 h-5 text-gray-400 mr-2 group-hover:text-yellow-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-                <span class="font-medium text-gray-700">Baptismal Certificate</span>
-              </div>
-              <p class="text-xs text-gray-500 mt-1">For Catholic students</p>
-            </div>
-          </label>
-          
-          <label class="flex items-start p-4 border-2 border-gray-200 rounded-lg hover:border-yellow-300 transition-all cursor-pointer group">
-            <input
-              type="checkbox"
-              bind:checked={formData.hasCompletionCert}
-              disabled={disabled || isSubmitting}
-              class="rounded border-gray-300 text-yellow-600 focus:ring-yellow-500 mr-4 mt-1 h-5 w-5"
-            />
-            <div class="flex-1">
-              <div class="flex items-center">
-                <svg class="w-5 h-5 text-gray-400 mr-2 group-hover:text-yellow-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                </svg>
-                <span class="font-medium text-gray-700">JHS Completion Certificate</span>
-              </div>
-              <p class="text-xs text-gray-500 mt-1">Proof of Junior High School completion</p>
-            </div>
-          </label>
-          
-          <label class="flex items-start p-4 border-2 border-gray-200 rounded-lg hover:border-yellow-300 transition-all cursor-pointer group">
-            <input
-              type="checkbox"
-              bind:checked={formData.hasESC}
-              disabled={disabled || isSubmitting}
-              class="rounded border-gray-300 text-yellow-600 focus:ring-yellow-500 mr-4 mt-1 h-5 w-5"
-            />
-            <div class="flex-1">
-              <div class="flex items-center">
-                <svg class="w-5 h-5 text-gray-400 mr-2 group-hover:text-yellow-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span class="font-medium text-gray-700">ESC Certificate</span>
-              </div>
-              <p class="text-xs text-gray-500 mt-1">If applicable</p>
-            </div>
-          </label>
-          
-          <label class="flex items-start p-4 border-2 border-gray-200 rounded-lg hover:border-yellow-300 transition-all cursor-pointer group">
-            <input
-              type="checkbox"
-              bind:checked={formData.hasNCAE}
-              disabled={disabled || isSubmitting}
-              class="rounded border-gray-300 text-yellow-600 focus:ring-yellow-500 mr-4 mt-1 h-5 w-5"
-            />
-            <div class="flex-1">
-              <div class="flex items-center">
-                <svg class="w-5 h-5 text-gray-400 mr-2 group-hover:text-yellow-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span class="font-medium text-gray-700">NCAE Result</span>
-              </div>
-              <p class="text-xs text-gray-500 mt-1">National Career Assessment Examination</p>
             </div>
           </label>
         </div>

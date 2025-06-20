@@ -1,5 +1,10 @@
 // src/lib/utils/validators.ts
-import type { ValidationError, JuniorHighEnrollment, SeniorHighEnrollment } from '$lib/types';
+// Define ValidationError type locally if not exported from $lib/types
+export interface ValidationError {
+  field: string;
+  message: string;
+}
+import type { JuniorHighEnrollment, SeniorHighEnrollment } from '$lib/types';
 import { sanitizeInput } from './security';
 
 // LRN validation (12 digits)
@@ -382,19 +387,8 @@ export function validateJuniorHighForm(data: Partial<JuniorHighEnrollment>): Val
     errors.push({ field: 'lastSchool', message: schoolResult.error! });
   }
   
-  // At least one document required
-  if (!data.hasForm10 && !data.hasPSA && !data.hasBaptismal && !data.hasGoodMoral) {
-    errors.push({ field: 'documents', message: 'You must select at least one document that you will submit. These are required for enrollment.' });
-  }
-  
-  // Validate boolean document fields
-  const documentFields = ['hasForm10', 'hasPSA', 'hasBaptismal', 'hasGoodMoral', 'isTransferee', 'hasAcademicExcellence'];
-  for (const field of documentFields) {
-    if ((data as any)[field] !== undefined && typeof (data as any)[field] !== 'boolean') {
-      errors.push({ field: 'documents', message: 'Invalid document selection detected. Please refresh and try again.' });
-      break;
-    }
-  }
+  // REMOVED: Document validation - documents are now only shown in print confirmation
+  // Documents are not required during the enrollment form submission
   
   return errors;
 }
@@ -403,9 +397,9 @@ export function validateJuniorHighForm(data: Partial<JuniorHighEnrollment>): Val
 export function validateSeniorHighForm(data: Partial<SeniorHighEnrollment>): ValidationError[] {
   const errors: ValidationError[] = [];
   
-  // All junior high validations apply (except documents)
+  // All junior high validations apply (except documents which are already removed)
   const baseErrors = validateJuniorHighForm(data as Partial<JuniorHighEnrollment>);
-  errors.push(...baseErrors.filter(e => e.field !== 'documents'));
+  errors.push(...baseErrors);
   
   // Additional senior high fields
   if (!data.strand) {
@@ -452,25 +446,8 @@ export function validateSeniorHighForm(data: Partial<SeniorHighEnrollment>): Val
     }
   }
   
-  // At least one document required (senior high specific)
-  const hasAnyDocument = data.hasForm9 || data.hasForm10 || data.hasPSA || 
-                        data.hasMoral || data.hasBaptismal || data.hasCompletionCert || 
-                        data.hasESC || data.hasNCAE;
-  
-  if (!hasAnyDocument) {
-    errors.push({ field: 'documents', message: 'You must select at least one document that you will submit. These are required for enrollment.' });
-  }
-  
-  // Validate boolean document fields
-  const documentFields = ['hasForm9', 'hasForm10', 'hasPSA', 'hasMoral', 'hasBaptismal', 
-                         'hasCompletionCert', 'hasESC', 'hasNCAE', 'isTransferee', 
-                         'hasAcademicAward', 'isESCGrantee'];
-  for (const field of documentFields) {
-    if ((data as any)[field] !== undefined && typeof (data as any)[field] !== 'boolean') {
-      errors.push({ field: 'documents', message: 'Invalid document selection detected. Please refresh and try again.' });
-      break;
-    }
-  }
+  // REMOVED: Document validation - documents are now only shown in print confirmation
+  // Documents are not required during the enrollment form submission
   
   return errors;
 }

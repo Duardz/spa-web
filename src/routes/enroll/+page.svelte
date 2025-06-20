@@ -21,6 +21,7 @@
   let success = $state(false);
   let isVisible = $state(false);
   let formProgress = $state(0);
+  let submittedType = $state<'junior' | 'senior' | null>(null); // Added this line to fix the error
   
   // Security: Rate limiting for submissions
   let lastSubmitTime = 0;
@@ -53,6 +54,7 @@
     
     return true;
   }
+  
   // Load user's existing enrollments with caching
   async function loadEnrollments() {
     if (!$user) return;
@@ -96,8 +98,6 @@
     }
   }
   
-
-
   async function handleSubmit(data: Omit<JuniorHighEnrollment, 'id' | 'submittedAt' | 'updatedAt' | 'userId' | 'userEmail' | 'status'> | Omit<SeniorHighEnrollment, 'id' | 'submittedAt' | 'updatedAt' | 'userId' | 'userEmail' | 'status'>) {
     const now = Date.now();
     if (now - lastSubmitTime < SUBMIT_COOLDOWN) {
@@ -172,12 +172,17 @@
 
       formProgress = 100;
       success = true;
+      
+      // Store the submitted type before clearing selectedType
+      submittedType = selectedType;
+      
       selectedType = null;
 
       if (browser) {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
 
+      // Auto-hide success message after 10 seconds
       setTimeout(() => {
         success = false;
         formProgress = 0;
@@ -205,7 +210,6 @@
       }
     }
   }
-
   
   // Cancel form
   function handleCancel() {
@@ -340,6 +344,37 @@
             <p class="mt-2 text-sm text-green-700">
               Your enrollment application has been received. We will review it and contact you soon.
             </p>
+            
+            <!-- Phase 2 Requirements -->
+            <div class="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <h4 class="text-sm font-semibold text-blue-900 mb-2">
+                Phase 2 Requirements - Please bring the following documents to school:
+              </h4>
+              {#if submittedType === 'junior'}
+                <ul class="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                  <li>School Form 10 (SF10) - Learner's permanent academic record</li>
+                  <li>PSA Birth Certificate - Original or certified true copy</li>
+                  <li>Certificate of Good Moral Character - From previous school</li>
+                  <li>Baptismal Certificate - For Catholic students (optional)</li>
+                </ul>
+              {:else if submittedType === 'senior'}
+                <ul class="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                  <li>School Form 9 (SF9) - Learner's progress report card</li>
+                  <li>School Form 10 (SF10) - Learner's permanent academic record</li>
+                  <li>PSA Birth Certificate - Original or certified true copy</li>
+                  <li>Certificate of Good Moral Character - From previous school</li>
+                  <li>JHS Completion Certificate - Proof of Junior High School completion</li>
+                  <li>Baptismal Certificate - For Catholic students (optional)</li>
+                  <li>ESC Certificate - If applicable</li>
+                  <li>NCAE Result - National Career Assessment Examination (if available)</li>
+                </ul>
+              {/if}
+              <p class="text-xs text-blue-600 mt-2 italic">
+                Note: These documents must be submitted during your school visit to complete the enrollment process.
+              </p>
+            </div>
+            
+            <!-- Action Buttons - User decides where to go -->
             <div class="mt-4 flex flex-col sm:flex-row gap-3">
               <Button 
                 variant="primary" 
